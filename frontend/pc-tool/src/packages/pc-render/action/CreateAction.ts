@@ -16,6 +16,8 @@ const TypePoints = {
     'points-3': 3,
     'box-2': 4,
     box: 2,
+    'line-2': 2,
+    'point-line': 4,
 };
 
 type DrawType = keyof typeof TypePoints;
@@ -194,6 +196,32 @@ export default class CreateAction extends Action {
         context.stroke();
     }
 
+    drawPointLine(pos: Point) {
+        let context = this.context;
+
+        this.clear();
+
+        if (this.trackLine) this.drawTrackLine(pos);
+
+        context.beginPath();
+        this.setStyle();
+
+        // Dessiner les lignes entre les points existants
+        this.points.forEach((p, index) => {
+            if (index === 0) context.moveTo(p.x, p.y);
+            else context.lineTo(p.x, p.y);
+        });
+
+        // Dessiner la ligne vers la position actuelle de la souris
+        if (this.points.length > 0) context.lineTo(pos.x, pos.y);
+        else {
+            this.drawPointer(pos);
+        }
+
+        context.stroke();
+    }
+
+
     drawBox(pos: Point) {
         let context = this.context;
 
@@ -272,12 +300,18 @@ export default class CreateAction extends Action {
                 // console.timeEnd('test-box');
 
                 break;
+            case 'point-line':
+                this.drawPointLine(pos);
+                break;
         }
     }
 
     handleCallback() {
         if (this.callback) {
+            console.log('Triggering Callback with Points:', this.points);
             this.callback(this.points);
+        } else {
+            console.error('Callback is not defined');
         }
     }
 
@@ -301,6 +335,8 @@ export default class CreateAction extends Action {
 
     handleMouse(event: MouseEvent) {
         this.points.push({ x: event.offsetX, y: event.offsetY });
+
+        console.log('Captured Points:', this.points); // Ajoutez un log pour vérifier les points capturés
 
         if (this.onChange) this.onChange(this.points);
 

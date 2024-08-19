@@ -261,6 +261,22 @@ export default class PointCloud extends THREE.EventDispatcher {
         return this.annotate2D;
     }
 
+    getAnnotateLines3D() {
+        return this.annotate3D.children.filter((e) => e instanceof THREE.Line) as THREE.Line[];
+    }
+
+    private annotations: THREE.Object3D[] = []; // Cela peut être un tableau ou une autre structure qui contient les objets annotés
+
+    // Méthode pour récupérer les annotations de points 3D
+    getAnnotatePoints3D(): THREE.Object3D[] {
+        return this.annotations.filter(object => object.userData.isPoint);
+    }
+
+    // Exemple d'ajout d'une annotation (vous pouvez avoir une méthode similaire existante)
+    addAnnotation(object: THREE.Object3D) {
+        this.annotations.push(object);
+    }
+
     clearData() {
         this.selectObject();
         this.annotate3D.children = [];

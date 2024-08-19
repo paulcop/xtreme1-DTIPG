@@ -12,6 +12,7 @@ function toMap<T extends string>(arr: T[]) {
 export const UIType = {
     // ****** left tool**********
     create3dBox: 'create3dBox',
+    create3dLine: 'create3dLine',
     create2dRect: 'create2dRect',
     create2dBox: 'create2dBox',
     translate: 'translate',

@@ -15,6 +15,7 @@ export let AllActions = Object.keys(Actions) as IActionName[];
 interface IActionArgs {
     createAnnotation: { object: Box };
     projectObject2D: { updateFlag?: boolean; createFlag?: boolean; selectFlag?: boolean };
+    create3DLine: {}; // TODO
     [key: string]: any;
 }
 
@@ -67,7 +68,12 @@ export default class ActionManager {
     }
 
     isBlocked() {
-        return this.currentAction || this.editor.state.status !== StatusType.Default;
+        const isBlocked = this.currentAction || this.editor.state.status !== StatusType.Default;
+        if (isBlocked) {
+            console.log('Current Action:', this.currentAction ? this.currentAction.name : 'None');
+            console.log('Editor Status:', this.editor.state.status);
+        }
+        return isBlocked;
     }
 
     getEnableAction(names: IActionName[]) {
@@ -105,6 +111,7 @@ export default class ActionManager {
             'create2DRect',
             'createAnnotation',
             'createObjectWith3',
+            'create3DLine',
         ];
 
         let config = this.editor.state.config;
@@ -125,6 +132,9 @@ export default class ActionManager {
                     config.activeAnnotation = false;
                 case 'createObjectWith3':
                     config.active3DBox = false;
+                case 'create3DLine':
+                    config.active3DLine = false;
+                    break;
             }
         }
     }

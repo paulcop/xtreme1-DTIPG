@@ -11,6 +11,7 @@ let createActions: IActionName[] = [
     'create2DRect',
     'createObjectWith3',
     'pickObject',
+    'create3DLine',
 ];
 
 export interface IConfig {
@@ -45,6 +46,10 @@ export default function useTool() {
                 stopOtherCreateAction('create2DRect');
                 editor.actionManager.execute('create2DRect');
 
+                break;
+            case 'create3DLine': // Gestion de l'action create3DLine
+                stopOtherCreateAction('create3DLine');
+                editor.actionManager.execute('create3DLine'); // Appelle l'action pour créer une ligne 3D
                 break;
             case 'translate':
                 editor.actionManager.execute('toggleTranslate');

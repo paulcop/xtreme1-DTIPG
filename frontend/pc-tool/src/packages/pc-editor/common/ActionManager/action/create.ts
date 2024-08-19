@@ -207,6 +207,163 @@ export const createObjectWith3 = define({
     },
 });
 
+
+// Fonction utilitaire pour créer une ligne 3D à partir de deux points
+function create3DLineFromPoints(start: THREE.Vector3, end: THREE.Vector3) {
+    const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Vert par défaut
+    const line = new THREE.Line(geometry, material);
+
+    return line;
+}
+
+function create3DLineAnnotation(editor: Editor, points2D: THREE.Vector2[]) {
+    if (!editor.pc) {
+        console.error('editor.pc is not initialized');
+        return null;
+    }
+
+    let view = editor.pc.renderViews.find((e) => e instanceof MainRenderView) as MainRenderView;
+
+    if (!view) {
+        console.error('MainRenderView is not available');
+        return null;
+    }
+
+    // Convertir les points 2D en points 3D en utilisant la vue principale
+    const points3D = points2D.map(point2D => {
+        return view.canvasToWorld(point2D);
+    });
+
+    // Créer les points 3D annotés
+    const points = points3D.map((point3D, index) => {
+        return createPointAnnotation(editor, point3D, {
+            trackId: editor.createTrackId(),
+            trackName: `Line-${editor.idCount}-${index}`,
+            classType: editor.state.currentClass,
+            classId: editor.classMap.get(editor.state.currentClass)?.id,
+            isAnnotation: true,
+        });
+    });
+
+    // Créer la géométrie de la ligne entre les points
+    const geometry = new THREE.BufferGeometry().setFromPoints(points3D);
+    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Couleur verte
+
+    const line = new THREE.Line(geometry, material);
+
+    // Ajouter la ligne à la scène
+    editor.pc.scene.add(line);
+    editor.pc.render();
+
+    return { points, line };
+}
+
+
+function createPointAnnotation(editor: Editor, position: THREE.Vector3, userData: any): THREE.Mesh {
+    console.log('Editor:', editor);
+    console.log('Editor.pc:', editor.pc);
+
+    if (!editor.pc) {
+        throw new Error('editor.pc is not initialized');
+    }
+
+    // Suite de la fonction
+    const pointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+    const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const point = new THREE.Mesh(pointGeometry, pointMaterial);
+
+    point.position.copy(position);
+
+    if (!userData) {
+        userData = {};
+    }
+
+    point.userData = userData;
+    point.userData.isPoint = true;
+
+    editor.pc.scene.add(point);
+
+    if (editor.pc.annotations) {
+        editor.pc.annotations.push(point);
+    } else {
+        console.warn("Annotations array is not defined in editor.pc.");
+    }
+
+    return point;
+}
+
+
+export const create3DLine = define({
+    valid(editor: Editor) {
+        let state = editor.state;
+        return !state.config.showSingleImgView && state.modeConfig.actions['create3DLine'];
+    },
+    end(editor: Editor) {
+        let action = this.action as CreateAction;
+        if (action) action.end();
+        editor.state.status = StatusType.Default;
+    },
+    async execute(editor: Editor) {
+        if (!editor.pc) {
+            console.error("editor.pc is not initialized");
+            return;
+        }
+
+        let view = editor.pc.renderViews.find((e) => e instanceof MainRenderView) as MainRenderView;
+        if (view) {
+            let action = view.getAction('create-obj') as CreateAction;
+            this.action = action;
+
+            editor.state.status = StatusType.Create;
+
+            return new Promise<any>((resolve) => {
+                action.start(
+                    {
+                        type: 'point-line', // Utilise point-line pour capturer plusieurs points
+                        startClick: true,
+                        startMouseDown: false,
+                    },
+                    async (data: THREE.Vector2[]) => {
+                        if (data.length < 2) {
+                            console.error('Not enough points to create a line.');
+                            resolve(null);
+                            return;
+                        }
+
+
+
+                        // Créer la ligne 3D et les points 3D avec les coordonnées 2D fournies
+                        const { points, line } = create3DLineAnnotation(editor, data);
+
+                        // Utiliser CmdManager pour gérer la création et la sélection de la ligne et des points
+                        editor.cmdManager.withGroup(() => {
+                            editor.cmdManager.execute('add-object', line);
+                            points.forEach(point => {
+                                editor.cmdManager.execute('add-object', point);
+                            });
+
+                            if (editor.state.isSeriesFrame) {
+                                let trackObject: Partial<IObject> = {
+                                    trackId: line.userData.trackId,
+                                    trackName: line.userData.trackName,
+                                    classType: line.userData.classType,
+                                    classId: line.userData.classId,
+                                };
+                                editor.cmdManager.execute('add-track', trackObject);
+                            }
+
+                            editor.cmdManager.execute('select-object', [...points, line]);
+                        });
+
+                        resolve({ points, line });
+                    }
+                );
+            });
+        }
+    },
+});
+
 export const createAnnotation = define({
     valid(editor: Editor) {
         let state = editor.state;

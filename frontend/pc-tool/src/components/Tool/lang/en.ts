@@ -34,6 +34,8 @@ const en = {
     title_aux_circle: 'Auxiliary Shape',
     title_radius: 'Radius',
 
+    title_3d_line: "3D Line",
+
     model_title: 'AI Annotation Setting',
     model_name: 'Model',
     model_predict: 'Predict all in Model',

@@ -3,6 +3,7 @@ import Editor from '../../common/Editor';
 import { BsUIType as UIType } from '../../config/ui';
 import { Component } from 'vue';
 import ToolTip from './modelConfig.vue';
+import SetLine from './setLine.vue';
 import SetBox from './setBox.vue';
 import SetHelper2D from './setHelper2D.vue';
 import { ILocale } from './lang/type';
@@ -78,6 +79,7 @@ export const allItems: IItemConfig[] = [
         },
         extra: () => SetBox,
         isDisplay: function (editor: Editor) {
+            console.log('Executing create3DBox');
             let state = editor.state;
             return state.modeConfig.ui[UIType.create3dBox] && !state.config.showSingleImgView;
         },
@@ -85,6 +87,31 @@ export const allItems: IItemConfig[] = [
             // return state.config.active3DBox;
             return false;
         },
+    },
+    {
+        action: 'create3DLine',
+        title: ($$) => $$('title_3d_line'),
+        getIcon: function (editor: Editor) {
+            return 'iconfont icon-polyline';
+        },
+        isDisplay: function (editor: Editor) {
+            let state = editor.state;
+            return state.modeConfig.ui[UIType.create3dLine] && !state.config.showSingleImgView;
+        },
+        isActive: function (editor: Editor) {
+            let state = editor.state;
+            return state.config.currentTool === 'create3DLine';
+        },
+        execute: function (editor: Editor) {
+            console.log('Executing create3DLine'); // Vérifiez si l'action est déclenchée
+            editor.executeAction('create3DLine');
+            /*
+            editor.state.config.currentTool = 'create3DLine'; // Définir l'outil actif comme create3DLine
+
+            // Si l'action doit déclencher une fonction spécifique dans l'éditeur, faites-le ici
+            editor.enterCreate3DLineMode(); // Appelez la méthode pour entrer en mode création de ligne 3D
+            */
+        }
     },
     {
         action: 'translate',
@@ -97,6 +124,7 @@ export const allItems: IItemConfig[] = [
             return state.modeConfig.ui[UIType.translate] && !state.config.showSingleImgView;
         },
         isActive: function (editor: Editor) {
+            console.log('Executing createTranslate');
             let state = editor.state;
             return state.config.activeTranslate;
         },

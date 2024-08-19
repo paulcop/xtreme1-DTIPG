@@ -86,7 +86,7 @@ export default class Editor extends THREE.EventDispatcher {
 
         this.state = getDefaultState();
 
-        this.pc = new PointCloud();
+        this.pc = new PointCloud(); // Initialisation de pc
         this.pc.initTween();
 
         this.cmdManager = new CmdManager(this);
@@ -236,6 +236,172 @@ export default class Editor extends THREE.EventDispatcher {
         utils.setIdInfo(this, object.userData);
         return object;
     }
+
+    //////////////////////////////////////////////////////////////////
+    //   Line 3D annotation   //
+
+    private linePoints: THREE.Vector3[] = [];
+    private lines: THREE.Line[] = [];
+    private pointObjects: THREE.Object3D[] = [];
+
+    // Méthode pour entrer en mode création de ligne 3D
+    enterCreate3DLineMode() {
+        this.clearCurrentMode();
+        this.state.config.currentTool = 'create3DLine';
+        this.enablePointPlacement();  // Active la sélection des points pour la ligne
+    }
+
+    // Méthode pour activer le placement des points
+    enablePointPlacement() {
+        const pointCloud = this.pc;
+
+        const onClick = (event) => {
+            const point = this.getClickedPoint(event);  // Obtenir les coordonnées 3D du point cliqué
+            if (point) {
+                this.addPoint(point);
+            }
+        };
+
+        // Écoute les clics dans la vue du point cloud
+        pointCloud.addEventListener(RenderEvent.CLICK, onClick);
+
+        // Nettoyer les événements après la création de la ligne
+        this.once(Event.CLEAR_MODE, () => {
+            pointCloud.removeEventListener(RenderEvent.CLICK, onClick);
+        });
+    }
+
+    // Méthode pour ajouter un point et potentiellement créer une ligne
+    addPoint(point: THREE.Vector3) {
+        this.linePoints.push(point);
+        const pointObject = this.createPointObject(point);
+        this.pointObjects.push(pointObject);
+        this.addToScene(pointObject);
+
+        // Créer une ligne si un deuxième point ou plus est ajouté
+        if (this.linePoints.length > 1) {
+            const line = this.createLineFromLastTwoPoints();
+            this.lines.push(line);
+            this.addToScene(line);
+        }
+    }
+
+    // Créer un objet point (visualisation du point dans la scène)
+    createPointObject(point: THREE.Vector3): THREE.Object3D {
+        const geometry = new THREE.SphereGeometry(0.1, 16, 16); // Point en tant que sphère
+        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Couleur rouge pour le point
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.copy(point);
+        sphere.userData.isPoint = true;  // Ajouter un indicateur dans les userData pour les points
+        return sphere;
+    }
+
+    // Créer une ligne entre les deux derniers points
+    createLineFromLastTwoPoints(): THREE.Line {
+        const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const points = this.linePoints.slice(-2);  // Derniers deux points
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        return new THREE.Line(geometry, material);
+    }
+
+    // Méthode pour supprimer un point sélectionné et la ligne associée
+    deleteSelectedPoint() {
+        if (this.pc.selection.length === 1) {
+            const selectedObject = this.pc.selection[0];
+            if (selectedObject.userData.isPoint) {
+                const pointIndex = this.pointObjects.indexOf(selectedObject);
+                if (pointIndex > -1) {
+                    this.pointObjects.splice(pointIndex, 1);
+                    this.linePoints.splice(pointIndex, 1);
+                    this.removeObjectFromScene(selectedObject);
+
+                    // Supprimer la ligne associée et la recréer si nécessaire
+                    if (pointIndex > 0) {
+                        const line = this.lines[pointIndex - 1];
+                        this.removeObjectFromScene(line);
+                        this.lines.splice(pointIndex - 1, 1);
+                    }
+
+                    if (pointIndex < this.lines.length) {
+                        const nextLine = this.lines[pointIndex];
+                        this.removeObjectFromScene(nextLine);
+                        this.lines.splice(pointIndex, 1);
+                        if (pointIndex > 0) {
+                            const newLine = this.createLineFromLastTwoPoints();
+                            this.lines.splice(pointIndex - 1, 0, newLine);
+                            this.addToScene(newLine);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Méthode pour déplacer un point sélectionné
+    moveSelectedPoint(newPosition: THREE.Vector3) {
+        if (this.pc.selection.length === 1) {
+            const selectedObject = this.pc.selection[0];
+            if (selectedObject.userData.isPoint) {
+                const pointIndex = this.pointObjects.indexOf(selectedObject);
+                if (pointIndex > -1) {
+                    this.linePoints[pointIndex] = newPosition;
+                    selectedObject.position.copy(newPosition);
+                    this.pc.render();
+
+                    // Mettre à jour les lignes connectées à ce point
+                    if (pointIndex > 0) {
+                        const prevLine = this.lines[pointIndex - 1];
+                        prevLine.geometry.setFromPoints([
+                            this.linePoints[pointIndex - 1],
+                            newPosition,
+                        ]);
+                    }
+                    if (pointIndex < this.lines.length) {
+                        const nextLine = this.lines[pointIndex];
+                        nextLine.geometry.setFromPoints([
+                            newPosition,
+                            this.linePoints[pointIndex + 1],
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Méthode pour supprimer un objet de la scène
+    removeObjectFromScene(object: THREE.Object3D) {
+        this.pc.scene.remove(object);
+        this.pc.render();
+    }
+
+    // Méthode pour obtenir le point cliqué dans le point cloud
+    getClickedPoint(event): THREE.Vector3 | null {
+        const intersects = this.pc.getIntersects(event);
+        if (intersects.length > 0) {
+            return intersects[0].point;
+        } else {
+            console.warn("No intersection found for the clicked point.");
+            return null;
+        }
+    }
+
+    // Méthode pour ajouter un objet à la scène 3D
+    addToScene(object: THREE.Object3D) {
+        if (!this.pc.scene) {
+            console.error("Point cloud scene is not initialized.");
+            return;
+        }
+
+        this.pc.scene.add(object);  // Ajoute l'objet à la scène du point cloud
+        this.pc.render();  // Re-render la scène pour afficher la ligne
+    }
+
+    // Méthode pour effacer le mode actuel (clear current mode)
+    clearCurrentMode() {
+        this.dispatchEvent({ type: Event.CLEAR_MODE });
+    }
+
+    //  Fin de la ligne 3D annotation   //
 
     createAnnotateRect(center: THREE.Vector2, size: THREE.Vector2, userData: IUserData = {}) {
         let object = utils.createAnnotateRect(this, center, size, userData);
@@ -394,12 +560,18 @@ export default class Editor extends THREE.EventDispatcher {
     toggleTranslate(flag: boolean, object?: THREE.Object3D) {
         let view = this.viewManager.getMainView();
         let action = view.getAction('transform-control') as TransformControlsAction;
-        let box = object || this.pc.selection.find((annotate) => annotate instanceof Box);
+        // Rechercher un objet de type Box ou un point si aucun objet n'est spécifié
+        let selectedObject = object || this.pc.selection.find(
+            (annotate) => annotate instanceof Box || annotate.userData.isPoint
+        );
+
+        if (!selectedObject) {
+            console.error('No object selected for transformation');
+            return; // Sortir de la fonction si aucun objet valide n'est trouvé
+        }
 
         if (flag) {
-            if (box) {
-                action.control.attach(box);
-            }
+            action.control.attach(selectedObject);
         } else {
             action.control.detach();
         }
