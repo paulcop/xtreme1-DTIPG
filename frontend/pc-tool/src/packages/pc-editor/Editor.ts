@@ -81,6 +81,9 @@ export default class Editor extends THREE.EventDispatcher {
     showConfirm: ConfirmFn = () => Promise.resolve();
     showLoading: LoadingFn = () => {};
 
+    private points: THREE.Object3D[] = []; // Store the points directly
+
+
     constructor() {
         super();
 
@@ -113,26 +116,63 @@ export default class Editor extends THREE.EventDispatcher {
 
     initEvent() {
         let config = this.state.config;
-        this.pc.addEventListener(RenderEvent.SELECT, (data) => {
-            let selection = this.pc.selection;
-            let box = selection.find((annotate) => annotate instanceof Box);
-            // update translate status
-            if (config.activeTranslate && box) {
-                this.toggleTranslate(true, box as THREE.Object3D);
+
+        this.pc.addEventListener(RenderEvent.CLICK, (event) => {
+            const intersects = this.pc.getIntersects(event);
+            if (intersects.length > 0) {
+                console.log('Intersected object:', intersects[0].object);
+                if (intersects[0].object.userData.isPoint) {
+                    console.log('Point clicked:', intersects[0].object);
+                    this.selectPoint(intersects[0].object);
+                } else if (intersects[0].object instanceof Box) {
+                    console.log('Box clicked:', intersects[0].object);
+                    this.selectBox(intersects[0].object);
+                }
+            } else {
+                console.log('No intersection detected');
             }
-            this.updateTrack();
-            this.dispatchEvent({ type: Event.ANNOTATE_SELECT, data: { ...data.data } });
         });
+
+        // Gestion de la sélection des objets
+        this.pc.addEventListener(RenderEvent.SELECT, (data) => {
+            console.log('RenderEvent.SELECT triggered:', data);
+
+            let selection = this.pc.selection;
+            let selectedObject = selection.find((annotate) => annotate instanceof THREE.Object3D);
+
+            // Vérifier si l'objet sélectionné est un point ou une boîte
+            if (selectedObject) {
+                console.log('Selected Object:', selectedObject);
+
+                // Si c'est une boîte ou un point, activer la translation si nécessaire
+                if (config.activeTranslate && (selectedObject instanceof Box || selectedObject.userData.isPoint)) {
+                    console.log('Activating translation for:', selectedObject);
+                    this.toggleTranslate(true, selectedObject);
+                }
+                this.updateTrack(); // Mettre à jour le suivi du point ou de la boîte
+                this.dispatchEvent({ type: Event.ANNOTATE_SELECT, data: { ...data.data } });
+            }
+        });
+
+        // Gestion des actions UNDO et REDO
         this.cmdManager.addEventListener(Event.UNDO, () => {
+            console.log('Event.UNDO triggered');
             this.updateTrack();
         });
 
         this.cmdManager.addEventListener(Event.REDO, () => {
+            console.log('Event.REDO triggered');
             this.updateTrack();
         });
+
+        // Gestion du double-clic sur un objet pour sélectionner tous les objets du même trackId
         this.pc.addEventListener(RenderEvent.OBJECT_DBLCLICK, (data) => {
+            console.log('RenderEvent.OBJECT_DBLCLICK triggered:', data);
+
             let object = data.data as AnnotateObject;
             let trackId = object.userData.trackId;
+
+            console.log('Double-clicked Object Track ID:', trackId);
 
             let annotate3D = this.pc.getAnnotate3D();
             let annotate2D = this.pc.getAnnotate2D();
@@ -141,10 +181,13 @@ export default class Editor extends THREE.EventDispatcher {
                 (e) => e.userData.trackId === trackId,
             );
             if (objects.length > 0) {
+                console.log('Selecting all objects with Track ID:', trackId);
                 this.pc.selectObject(objects);
             }
         });
     }
+
+
     updateTrack() {
         const selection = this.pc.selection;
         const userData =
@@ -240,160 +283,179 @@ export default class Editor extends THREE.EventDispatcher {
     //////////////////////////////////////////////////////////////////
     //   Line 3D annotation   //
 
-    private linePoints: THREE.Vector3[] = [];
-    private lines: THREE.Line[] = [];
-    private pointObjects: THREE.Object3D[] = [];
-
-    // Méthode pour entrer en mode création de ligne 3D
-    enterCreate3DLineMode() {
+    // Method to enter point creation mode
+    enterCreate3DPointMode() {
         this.clearCurrentMode();
-        this.state.config.currentTool = 'create3DLine';
-        this.enablePointPlacement();  // Active la sélection des points pour la ligne
+        this.state.config.currentTool = 'create3DPoint';
+        this.enablePointPlacement();  // Enables the selection of points for creation
     }
 
-    // Méthode pour activer le placement des points
+    // Method to update lines between a list of points
+    updateLinesBetweenPoints(points: THREE.Object3D[]) {
+        if (points.length < 2) return;
+
+        // Clear any existing lines
+        this.clearExistingLines();
+
+        // Create and add lines between the points
+        for (let i = 1; i < points.length; i++) {
+            const prevPoint = points[i - 1];
+            const currPoint = points[i];
+
+            // Vérification des points
+            if (!prevPoint || !currPoint) {
+                console.error('Un des points est undefined:', { prevPoint, currPoint });
+                continue; // Passe à l'itération suivante si un point est undefined
+            }
+
+            const line = this.createLineBetweenPoints(prevPoint, currPoint);
+            this.addToScene(line);
+        }
+    }
+
+    // Enable point placement
     enablePointPlacement() {
         const pointCloud = this.pc;
 
         const onClick = (event) => {
-            const point = this.getClickedPoint(event);  // Obtenir les coordonnées 3D du point cliqué
+            const point = this.getClickedPoint(event);  // Get the 3D coordinates of the clicked point
             if (point) {
                 this.addPoint(point);
             }
         };
 
-        // Écoute les clics dans la vue du point cloud
         pointCloud.addEventListener(RenderEvent.CLICK, onClick);
 
-        // Nettoyer les événements après la création de la ligne
         this.once(Event.CLEAR_MODE, () => {
             pointCloud.removeEventListener(RenderEvent.CLICK, onClick);
         });
     }
 
-    // Méthode pour ajouter un point et potentiellement créer une ligne
+    // Add a point to the scene and list
     addPoint(point: THREE.Vector3) {
-        this.linePoints.push(point);
         const pointObject = this.createPointObject(point);
-        this.pointObjects.push(pointObject);
+        this.points.push(pointObject);
         this.addToScene(pointObject);
 
-        // Créer une ligne si un deuxième point ou plus est ajouté
-        if (this.linePoints.length > 1) {
-            const line = this.createLineFromLastTwoPoints();
-            this.lines.push(line);
-            this.addToScene(line);
-        }
+        // Draw lines between all points in the same list
+        this.updateLines();
     }
 
-    // Créer un objet point (visualisation du point dans la scène)
+    // Create a point object for visualization in the scene
     createPointObject(point: THREE.Vector3): THREE.Object3D {
-        const geometry = new THREE.SphereGeometry(0.1, 16, 16); // Point en tant que sphère
-        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Couleur rouge pour le point
+        const geometry = new THREE.SphereGeometry(0.1, 16, 16);
+        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for the point
         const sphere = new THREE.Mesh(geometry, material);
         sphere.position.copy(point);
-        sphere.userData.isPoint = true;  // Ajouter un indicateur dans les userData pour les points
+        sphere.userData.isPoint = true;
+        this.pc.scene.add(sphere); // Ensure the point is added to the scene
         return sphere;
     }
 
-    // Créer une ligne entre les deux derniers points
-    createLineFromLastTwoPoints(): THREE.Line {
+    // Update lines between all points in the list
+    updateLines() {
+        this.clearExistingLines();  // Clear any existing lines from the scene
+
+        if (this.points.length > 1) {
+            for (let i = 1; i < this.points.length; i++) {
+                const line = this.createLineBetweenPoints(this.points[i - 1], this.points[i]);
+                this.addToScene(line);
+            }
+        }
+    }
+
+    // Create a line between two points
+    createLineBetweenPoints(point1: THREE.Object3D, point2: THREE.Object3D): THREE.Line {
+        // Vérification des points
+        if (!point1 || !point2) {
+            throw new Error('Les points fournis à createLineBetweenPoints ne peuvent pas être undefined');
+        }
+
         const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-        const points = this.linePoints.slice(-2);  // Derniers deux points
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+            point1.position,
+            point2.position,
+        ]);
         return new THREE.Line(geometry, material);
     }
 
-    // Méthode pour supprimer un point sélectionné et la ligne associée
-    deleteSelectedPoint() {
-        if (this.pc.selection.length === 1) {
-            const selectedObject = this.pc.selection[0];
-            if (selectedObject.userData.isPoint) {
-                const pointIndex = this.pointObjects.indexOf(selectedObject);
-                if (pointIndex > -1) {
-                    this.pointObjects.splice(pointIndex, 1);
-                    this.linePoints.splice(pointIndex, 1);
-                    this.removeObjectFromScene(selectedObject);
-
-                    // Supprimer la ligne associée et la recréer si nécessaire
-                    if (pointIndex > 0) {
-                        const line = this.lines[pointIndex - 1];
-                        this.removeObjectFromScene(line);
-                        this.lines.splice(pointIndex - 1, 1);
-                    }
-
-                    if (pointIndex < this.lines.length) {
-                        const nextLine = this.lines[pointIndex];
-                        this.removeObjectFromScene(nextLine);
-                        this.lines.splice(pointIndex, 1);
-                        if (pointIndex > 0) {
-                            const newLine = this.createLineFromLastTwoPoints();
-                            this.lines.splice(pointIndex - 1, 0, newLine);
-                            this.addToScene(newLine);
-                        }
-                    }
-                }
-            }
-        }
+    // Clear existing lines from the scene
+    clearExistingLines() {
+        const lines = this.pc.scene.children.filter((obj) => obj instanceof THREE.Line);
+        lines.forEach((line) => {
+            this.pc.scene.remove(line);
+        });
+        this.pc.render(); // Re-render the scene
     }
 
-    // Méthode pour déplacer un point sélectionné
+    // Method to handle point selection
+    selectPoint(point: THREE.Object3D) {
+        this.pc.selectObject(point);
+        this.updateSelectedPoint(point);
+    }
+
+    // Update the selected point's properties (e.g., color)
+    updateSelectedPoint(point: THREE.Object3D) {
+        point.userData.isSelected = true;
+        (point.material as THREE.MeshBasicMaterial).color.setHex(0x0000ff); // Change color to blue when selected
+        this.pc.render();
+    }
+
+    // Method to handle point movement
     moveSelectedPoint(newPosition: THREE.Vector3) {
         if (this.pc.selection.length === 1) {
-            const selectedObject = this.pc.selection[0];
-            if (selectedObject.userData.isPoint) {
-                const pointIndex = this.pointObjects.indexOf(selectedObject);
-                if (pointIndex > -1) {
-                    this.linePoints[pointIndex] = newPosition;
-                    selectedObject.position.copy(newPosition);
-                    this.pc.render();
+            const selectedPoint = this.pc.selection[0];
+            if (selectedPoint.userData.isPoint) {
+                selectedPoint.position.copy(newPosition);
+                this.pc.render();
 
-                    // Mettre à jour les lignes connectées à ce point
-                    if (pointIndex > 0) {
-                        const prevLine = this.lines[pointIndex - 1];
-                        prevLine.geometry.setFromPoints([
-                            this.linePoints[pointIndex - 1],
-                            newPosition,
-                        ]);
-                    }
-                    if (pointIndex < this.lines.length) {
-                        const nextLine = this.lines[pointIndex];
-                        nextLine.geometry.setFromPoints([
-                            newPosition,
-                            this.linePoints[pointIndex + 1],
-                        ]);
-                    }
+                // Update lines dynamically after moving the point
+                this.updateLines();
+            }
+        }
+    }
+
+    // Method to remove a selected point from the scene
+    deleteSelectedPoint() {
+        if (this.pc.selection.length === 1) {
+            const selectedPoint = this.pc.selection[0];
+            if (selectedPoint.userData.isPoint) {
+                const pointIndex = this.points.indexOf(selectedPoint);
+                if (pointIndex > -1) {
+                    this.points.splice(pointIndex, 1);
+                    this.removeObjectFromScene(selectedPoint);
+
+                    // Update lines dynamically after removing the point
+                    this.updateLines();
                 }
             }
         }
     }
 
-    // Méthode pour supprimer un objet de la scène
+    // Remove an object from the scene
     removeObjectFromScene(object: THREE.Object3D) {
         this.pc.scene.remove(object);
         this.pc.render();
     }
 
-    // Méthode pour obtenir le point cliqué dans le point cloud
-    getClickedPoint(event): THREE.Vector3 | null {
-        const intersects = this.pc.getIntersects(event);
-        if (intersects.length > 0) {
-            return intersects[0].point;
-        } else {
-            console.warn("No intersection found for the clicked point.");
-            return null;
-        }
-    }
-
-    // Méthode pour ajouter un objet à la scène 3D
+    // Add an object to the scene
     addToScene(object: THREE.Object3D) {
         if (!this.pc.scene) {
             console.error("Point cloud scene is not initialized.");
             return;
         }
 
-        this.pc.scene.add(object);  // Ajoute l'objet à la scène du point cloud
-        this.pc.render();  // Re-render la scène pour afficher la ligne
+        this.pc.scene.add(object);
+        this.pc.render();
+    }
+
+    // Get the clicked point in the point cloud
+    getClickedPoint(event): THREE.Vector3 | null {
+        const intersects = this.pc.getIntersects(event);
+        if (intersects.length > 0) {
+            return intersects[0].point;
+        }
+        return null;
     }
 
     // Méthode pour effacer le mode actuel (clear current mode)

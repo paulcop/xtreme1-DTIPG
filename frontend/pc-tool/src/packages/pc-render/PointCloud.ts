@@ -153,6 +153,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         this.selectionMap = {};
         selection.forEach((e) => {
             this.selectionMap[e.uuid] = e;
+            console.log('Objet sélectionné:', e);
         });
 
         this.dispatchEvent({
@@ -269,6 +270,7 @@ export default class PointCloud extends THREE.EventDispatcher {
 
     // Méthode pour récupérer les annotations de points 3D
     getAnnotatePoints3D(): THREE.Object3D[] {
+        console.log("Points 3D annotés :", this.annotations.filter(object => object.userData.isPoint));
         return this.annotations.filter(object => object.userData.isPoint);
     }
 

@@ -32,8 +32,9 @@ export default function useClassItem() {
                     let objects: AnnotateObject[] = [];
                     let annotate3D = pc.getAnnotate3D();
                     let annotate2D = pc.getAnnotate2D();
+                    let annotatePoints3D = pc.getAnnotatePoints3D();
 
-                    [...annotate3D, ...annotate2D].forEach((object) => {
+                    [...annotate3D, ...annotate2D, ...annotatePoints3D].forEach((object) => {
                         let id = object.userData.trackId;
                         if (idMap[id]) objects.push(object);
                     });
@@ -63,8 +64,10 @@ export default function useClassItem() {
 
         let object3D: AnnotateObject[] = [];
         let object2D: AnnotateObject[] = [];
+        let objectPoints3D: AnnotateObject[] = [];
         let annotate3D = pc.getAnnotate3D();
         let annotate2D = pc.getAnnotate2D();
+        let annotatePoints3D = pc.getAnnotatePoints3D();
 
         annotate3D.forEach((object) => {
             let userData = object.userData as Required<IUserData>;
@@ -76,12 +79,21 @@ export default function useClassItem() {
             if (idMap[userData.trackId]) object2D.push(object);
         });
 
+        annotatePoints3D.forEach((object) => {
+            let userData = object.userData as Required<IUserData>;
+            if (idMap[userData.trackId]) objectPoints3D.push(object);
+        });
+
         if (object3D.length > 0) {
             pc.setVisible(object3D, visible);
         }
 
         if (object2D.length > 0) {
             pc.setVisible(object2D, visible);
+        }
+
+        if (objectPoints3D.length > 0) {
+            pc.setVisible(objectPoints3D, visible);
         }
     }
     function onHeaderClick(item: IClass) {

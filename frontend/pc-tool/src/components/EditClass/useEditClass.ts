@@ -166,96 +166,46 @@ export default function useEditClass() {
         control.close();
     }
 
-    function showBatchObject(trackIds: string[]) {
-        let trackIdMap = {};
-        trackIds.forEach((id) => (trackIdMap[id] = true));
-        let objects = editor.pc
-            .getAnnotate3D()
-            .filter((e) => trackIdMap[e.userData.trackId]) as AnnotateObject[];
-
-        if (objects.length === 0) {
-            close();
-            return;
-        }
-
-        let object = objects[0];
-        state.objectId = new Date().getTime() + '';
-        state.modelClass = (object.userData as IUserData).modelClass || '';
-        state.classType = object.userData.classId || object.userData.classType || '';
-
-        let confidenceMax = 0;
-        let confidenceMin = 1;
-        let instances: IInstanceItem[] = objects.map((e) => {
-            let name = e.userData.trackName || '';
-            let confidence = e.userData.confidence || 1;
-            if (confidence > confidenceMax) confidenceMax = confidence;
-            if (confidence < confidenceMin) confidenceMin = confidence;
-            return { id: e.uuid, name: name, confidence: confidence };
-        });
-
-        let confidenceMinFix = +confidenceMin.toFixed(2);
-        confidenceMinFix = Math.max(confidenceMinFix - 0.01, 0);
-        let confidenceMaxFix = +confidenceMax.toFixed(2);
-        confidenceMaxFix = Math.min(confidenceMaxFix + 0.01, 1);
-
-        state.instances = instances;
-        state.confidenceRange = [confidenceMinFix, confidenceMaxFix];
-
-        tempObjects = objects;
-    }
-
     function showObject(trackId: string) {
         let annotate2d = editor.pc.getAnnotate2D();
         let annotate3d = editor.pc.getAnnotate3D();
+        let annotatePoints = editor.pc.getAnnotatePoints3D();
 
-        let info = getAnnotateByTrackId([...annotate3d, ...annotate2d], trackId);
+        let info = getAnnotateByTrackId([...annotate3d, ...annotate2d, ...annotatePoints], trackId);
 
-        if (info.annotate3D.length === 0 && info.annotate2D.length === 0) {
+        if (info.annotate3D.length === 0 && info.annotate2D.length === 0 && info.annotatePoints.length === 0) {
             close();
             return;
         }
 
-        let object = info.annotate3D.length > 0 ? info.annotate3D[0] : info.annotate2D[0];
+        let object = info.annotate3D.length > 0 ? info.annotate3D[0] : (info.annotate2D.length > 0 ? info.annotate2D[0] : info.annotatePoints[0]);
         let userData = editor.getObjectUserData(object);
 
         state.objectId = object.uuid;
         state.modelClass = userData.modelClass || '';
         state.classType = userData.classId || userData.classType || '';
-        // state.isInvisible = !!userData.invisibleFlag;
         state.trackId = userData.trackId || '';
         state.trackName = userData.trackName || '';
-        // state.isStandard = userData.isStandard || false;
-        // state.resultStatus = userData.resultStatus || Const.True_Value;
-        // state.resultType = userData.resultType || Const.Dynamic;
 
-        // temp
         trackObject = object;
-        tempObjects = [...info.annotate3D, ...info.annotate2D];
+        tempObjects = [...info.annotate3D, ...info.annotate2D, ...info.annotatePoints];
 
         let trackVisible = false;
         let rectTitle = $$('rect-title');
         let boxTitle = $$('box-title');
+        let pointTitle = $$('point-title'); // Ajoutez un titre pour les points
         state.resultInstances = tempObjects.map((e) => {
             let userData = e.userData as Required<IUserData>;
             let is3D = e instanceof Box;
-            let info = $$('cloud-object');
-            if (!is3D) {
-                let isRect = e instanceof Rect;
-                let index = get2DIndex((e as Rect).viewId);
-                info = $$('image-object', {
-                    index: index + 1,
-                    type: isRect ? rectTitle : boxTitle,
-                });
-                // info = `Image ${index + 1} Object(${isRect ? 'Rect' : 'Box'})`;
-            }
+            let isPoint = userData.isPoint; // Vérifiez si c'est un point
+            let info = is3D ? $$('cloud-object') : (isPoint ? pointTitle : $$('image-object'));
 
             if (e.visible) trackVisible = true;
 
-            return { id: e.uuid, name: userData.id.slice(-4), info, confidence: 0 };
+            return {id: e.uuid, name: userData.id.slice(-4), info, confidence: 0};
         });
 
         state.trackVisible = trackVisible;
-        // state.annotateType = object.annotateType;
         if (state.classType) {
             updateAttrInfo(userData, state.classType);
             updateClassInfo();
@@ -477,18 +427,22 @@ export default function useEditClass() {
 function getAnnotateByTrackId(annotates: AnnotateObject[], trackId: string) {
     let annotate3D = [] as AnnotateObject[];
     let annotate2D = [] as AnnotateObject[];
+    let annotatePoints = [] as AnnotateObject[];
+
     annotates.forEach((obj) => {
         let userData = obj.userData as Required<IUserData>;
         if (userData.trackId !== trackId) return;
 
         if (obj instanceof Box) {
             annotate3D.push(obj);
-        } else {
+        } else if (obj instanceof Rect) {
             annotate2D.push(obj);
+        } else if (userData.isPoint) {
+            annotatePoints.push(obj);
         }
     });
 
-    return { annotate2D, annotate3D };
+    return { annotate2D, annotate3D, annotatePoints };
 }
 
 function get2DIndex(viewId: string) {

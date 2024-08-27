@@ -218,7 +218,8 @@ export default function useInstance() {
     function updateList() {
         let object3Ds = pc.getAnnotate3D();
         let object2Ds = pc.getAnnotate2D();
-        let objects = [...object3Ds, ...object2Ds];
+        let objectPoints3D = pc.getAnnotatePoints3D();
+        let objects = [...object3Ds, ...object2Ds, ...objectPoints3D];
 
         let classifyMap: Record<string, IClassify> = {};
         let trackMap: Record<string, IItem> = {};
@@ -290,7 +291,7 @@ export default function useInstance() {
                 isTrackItem: false,
                 data: [],
                 annotateType:
-                    obj instanceof THREE.Object3D ? '3d' : obj instanceof Rect ? 'rect' : 'box2d',
+                    obj instanceof THREE.Object3D && !userData.isPoint ? '3d' : (obj instanceof Rect ? 'rect' : (userData.isPoint ? 'point' : 'box2d')),
                 name: name,
                 visible: obj.visible,
                 isModel: !!userData.modelClass,
@@ -535,8 +536,7 @@ export default function useInstance() {
     function onItemClick(item: IItem) {
         if (!item.visible) return;
 
-        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : pc.getAnnotate2D();
-        let find = _.find(objects, (box: THREE.Object3D) => {
+        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : (item.annotateType === 'rect' ? pc.getAnnotate2D() : pc.getAnnotatePoints3D());        let find = _.find(objects, (box: THREE.Object3D) => {
             return box.uuid === item.id;
         }) as THREE.Object3D;
 

@@ -9,6 +9,7 @@ import {
     ITransform,
 } from 'pc-render';
 import * as THREE from 'three';
+import { nanoid } from 'nanoid';
 import * as _ from 'lodash';
 import Editor from '../../../Editor';
 import { define } from '../define';
@@ -208,15 +209,6 @@ export const createObjectWith3 = define({
 });
 
 
-// Fonction utilitaire pour créer une ligne 3D à partir de deux points
-function create3DLineFromPoints(start: THREE.Vector3, end: THREE.Vector3) {
-    const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
-    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Vert par défaut
-    const line = new THREE.Line(geometry, material);
-
-    return line;
-}
-
 function create3DLineAnnotation(editor: Editor, points2D: THREE.Vector2[]) {
     if (!editor.pc) {
         console.error('editor.pc is not initialized');
@@ -230,14 +222,13 @@ function create3DLineAnnotation(editor: Editor, points2D: THREE.Vector2[]) {
         return null;
     }
 
-    // Convertir les points 2D en points 3D en utilisant la vue principale
-    const points3D = points2D.map(point2D => {
-        return view.canvasToWorld(point2D);
-    });
+    // Convert 2D points to 3D points using the main view
+    const points3D = points2D.map(point2D => view.canvasToWorld(point2D));
 
-    // Créer les points 3D annotés
+    // Create annotated 3D points
     const points = points3D.map((point3D, index) => {
         return createPointAnnotation(editor, point3D, {
+            id: nanoid(),
             trackId: editor.createTrackId(),
             trackName: `Line-${editor.idCount}-${index}`,
             classType: editor.state.currentClass,
@@ -246,37 +237,26 @@ function create3DLineAnnotation(editor: Editor, points2D: THREE.Vector2[]) {
         });
     });
 
-    // Créer la géométrie de la ligne entre les points
-    const geometry = new THREE.BufferGeometry().setFromPoints(points3D);
-    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Couleur verte
+    // Add points to the scene and draw lines between them dynamically
+    points.forEach(point => editor.addToScene(point));
+    editor.updateLinesBetweenPoints(points);
 
-    const line = new THREE.Line(geometry, material);
-
-    // Ajouter la ligne à la scène
-    editor.pc.scene.add(line);
-    editor.pc.render();
-
-    return { points, line };
+    return points;
 }
 
-
 function createPointAnnotation(editor: Editor, position: THREE.Vector3, userData: any): THREE.Mesh {
-    console.log('Editor:', editor);
-    console.log('Editor.pc:', editor.pc);
-
-    if (!editor.pc) {
-        throw new Error('editor.pc is not initialized');
-    }
-
-    // Suite de la fonction
     const pointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-    const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const point = new THREE.Mesh(pointGeometry, pointMaterial);
 
     point.position.copy(position);
 
     if (!userData) {
         userData = {};
+    }
+
+    if (!userData.id) {
+        userData.id = nanoid(); // Ensure each point has a unique id
     }
 
     point.userData = userData;
@@ -292,7 +272,6 @@ function createPointAnnotation(editor: Editor, position: THREE.Vector3, userData
 
     return point;
 }
-
 
 export const create3DLine = define({
     valid(editor: Editor) {
@@ -320,7 +299,7 @@ export const create3DLine = define({
             return new Promise<any>((resolve) => {
                 action.start(
                     {
-                        type: 'point-line', // Utilise point-line pour capturer plusieurs points
+                        type: 'point-line', // Use point-line to capture multiple points
                         startClick: true,
                         startMouseDown: false,
                     },
@@ -331,32 +310,28 @@ export const create3DLine = define({
                             return;
                         }
 
+                        // Create the 3D points and dynamically draw lines between them
+                        const points = create3DLineAnnotation(editor, data);
 
-
-                        // Créer la ligne 3D et les points 3D avec les coordonnées 2D fournies
-                        const { points, line } = create3DLineAnnotation(editor, data);
-
-                        // Utiliser CmdManager pour gérer la création et la sélection de la ligne et des points
                         editor.cmdManager.withGroup(() => {
-                            editor.cmdManager.execute('add-object', line);
                             points.forEach(point => {
                                 editor.cmdManager.execute('add-object', point);
                             });
 
                             if (editor.state.isSeriesFrame) {
                                 let trackObject: Partial<IObject> = {
-                                    trackId: line.userData.trackId,
-                                    trackName: line.userData.trackName,
-                                    classType: line.userData.classType,
-                                    classId: line.userData.classId,
+                                    trackId: points[0].userData.trackId,
+                                    trackName: points[0].userData.trackName,
+                                    classType: points[0].userData.classType,
+                                    classId: points[0].userData.classId,
                                 };
                                 editor.cmdManager.execute('add-track', trackObject);
                             }
 
-                            editor.cmdManager.execute('select-object', [...points, line]);
+                            editor.cmdManager.execute('select-object', points);
                         });
 
-                        resolve({ points, line });
+                        resolve(points);
                     }
                 );
             });

@@ -276,11 +276,9 @@ export default class SideRenderView extends Render {
 
     // render
     renderFrame() {
-        // console.log('renderFrame');
         let { groupPoints, scene, selection } = this.pointCloud;
 
         this.updateSize();
-        // if(this.renderTimer) return;
         this.renderer.clear(true, true, true);
 
         if (groupPoints.children.length === 0) return;
@@ -288,36 +286,48 @@ export default class SideRenderView extends Render {
         let hasObject3D = selection.find((e) => e instanceof THREE.Object3D);
 
         if (selection.length > 0 && hasObject3D) {
-            // render points
+            // Render points
             let groupPoint = groupPoints.children[0] as THREE.Points;
-            let box = hasObject3D as Box;
-            box.updateMatrixWorld();
-            // if (!box.geometry.boundingBox) box.geometry.computeBoundingBox();
+            let selectedObject = hasObject3D as THREE.Object3D;
 
-            let bbox = box.geometry.boundingBox as THREE.Box3;
-            let material = groupPoint.material as PointsMaterial;
+            selectedObject.updateMatrixWorld();
 
-            let oldDepthTest = material.depthTest;
-            let oldHasFilterBox = material.getUniforms('hasFilterBox');
-            let oldType = material.getUniforms('boxInfo').type;
+            let bbox: THREE.Box3 | null = null;
+            if (selectedObject instanceof Box) {
+                bbox = selectedObject.geometry.boundingBox as THREE.Box3;
+                if (!bbox) {
+                    selectedObject.geometry.computeBoundingBox();
+                    bbox = selectedObject.geometry.boundingBox;
+                }
+            } else if (selectedObject instanceof THREE.Mesh) {
+                bbox = new THREE.Box3().setFromObject(selectedObject);
+            }
 
-            material.depthTest = false;
-            material.setUniforms({
-                hasFilterBox: 1,
-                boxInfo: {
-                    type: 0,
-                    min: bbox.min,
-                    max: bbox.max,
-                    color: this.selectColor,
-                    matrix: this.boxInvertMatrix.copy(box.matrixWorld).invert(),
-                },
-            });
-            this.renderer.render(groupPoint, this.camera);
+            if (bbox) {
+                let material = groupPoint.material as PointsMaterial;
 
-            material.setUniforms({ hasFilterBox: oldHasFilterBox, boxInfo: { type: oldType } });
-            material.depthTest = oldDepthTest;
+                let oldDepthTest = material.depthTest;
+                let oldHasFilterBox = material.getUniforms('hasFilterBox');
+                let oldType = material.getUniforms('boxInfo').type;
 
-            // render box
+                material.depthTest = false;
+                material.setUniforms({
+                    hasFilterBox: 1,
+                    boxInfo: {
+                        type: 0,
+                        min: bbox.min,
+                        max: bbox.max,
+                        color: this.selectColor,
+                        matrix: this.boxInvertMatrix.copy(selectedObject.matrixWorld).invert(),
+                    },
+                });
+                this.renderer.render(groupPoint, this.camera);
+
+                material.setUniforms({ hasFilterBox: oldHasFilterBox, boxInfo: { type: oldType } });
+                material.depthTest = oldDepthTest;
+            }
+
+            // Render selected object (point or line)
             selection.forEach((object) => {
                 if (object instanceof THREE.Object3D) {
                     this.renderer.render(object, this.camera);
@@ -327,8 +337,13 @@ export default class SideRenderView extends Render {
             this.renderer.render(groupPoints, this.camera);
         }
 
+        // Render all lines in the scene
+        scene.children.forEach((child) => {
+            if (child instanceof THREE.Line) {
+                this.renderer.render(child, this.camera);
+            }
+        });
+
         this.updateProjectRect();
-        // console.log('renderFrame');
-        // this.updateDom();
     }
 }
