@@ -110,6 +110,10 @@ export default class Editor extends THREE.EventDispatcher {
 
         this.initEvent();
 
+        this.pc.addEventListener('update-lines', (event) => {
+            this.updateLines(event.data.object);
+        });
+
         // util
         this.blurPage = _.throttle(this.blurPage.bind(this), 40);
     }
@@ -283,13 +287,6 @@ export default class Editor extends THREE.EventDispatcher {
     //////////////////////////////////////////////////////////////////
     //   Line 3D annotation   //
 
-    // Method to enter point creation mode
-    enterCreate3DPointMode() {
-        this.clearCurrentMode();
-        this.state.config.currentTool = 'create3DPoint';
-        this.enablePointPlacement();  // Enables the selection of points for creation
-    }
-
     // Method to update lines between a list of points
     updateLinesBetweenPoints(points: THREE.Object3D[]) {
         if (points.length < 2) return;
@@ -313,49 +310,12 @@ export default class Editor extends THREE.EventDispatcher {
         }
     }
 
-    // Enable point placement
-    enablePointPlacement() {
-        const pointCloud = this.pc;
-
-        const onClick = (event) => {
-            const point = this.getClickedPoint(event);  // Get the 3D coordinates of the clicked point
-            if (point) {
-                this.addPoint(point);
-            }
-        };
-
-        pointCloud.addEventListener(RenderEvent.CLICK, onClick);
-
-        this.once(Event.CLEAR_MODE, () => {
-            pointCloud.removeEventListener(RenderEvent.CLICK, onClick);
-        });
-    }
-
-    // Add a point to the scene and list
-    addPoint(point: THREE.Vector3) {
-        const pointObject = this.createPointObject(point);
-        this.points.push(pointObject);
-        this.addToScene(pointObject);
-
-        // Draw lines between all points in the same list
-        this.updateLines();
-    }
-
-    // Create a point object for visualization in the scene
-    createPointObject(point: THREE.Vector3): THREE.Object3D {
-        const geometry = new THREE.SphereGeometry(0.1, 16, 16);
-        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for the point
-        const sphere = new THREE.Mesh(geometry, material);
-        sphere.position.copy(point);
-        sphere.userData.isPoint = true;
-        this.pc.scene.add(sphere); // Ensure the point is added to the scene
-        return sphere;
-    }
-
     // Update lines between all points in the list
     updateLines() {
+        console.log("==================================is")
         this.clearExistingLines();  // Clear any existing lines from the scene
 
+        console.log("liste  ", this.points)
         if (this.points.length > 1) {
             for (let i = 1; i < this.points.length; i++) {
                 const line = this.createLineBetweenPoints(this.points[i - 1], this.points[i]);
@@ -401,42 +361,6 @@ export default class Editor extends THREE.EventDispatcher {
         this.pc.render();
     }
 
-    // Method to handle point movement
-    moveSelectedPoint(newPosition: THREE.Vector3) {
-        if (this.pc.selection.length === 1) {
-            const selectedPoint = this.pc.selection[0];
-            if (selectedPoint.userData.isPoint) {
-                selectedPoint.position.copy(newPosition);
-                this.pc.render();
-
-                // Update lines dynamically after moving the point
-                this.updateLines();
-            }
-        }
-    }
-
-    // Method to remove a selected point from the scene
-    deleteSelectedPoint() {
-        if (this.pc.selection.length === 1) {
-            const selectedPoint = this.pc.selection[0];
-            if (selectedPoint.userData.isPoint) {
-                const pointIndex = this.points.indexOf(selectedPoint);
-                if (pointIndex > -1) {
-                    this.points.splice(pointIndex, 1);
-                    this.removeObjectFromScene(selectedPoint);
-
-                    // Update lines dynamically after removing the point
-                    this.updateLines();
-                }
-            }
-        }
-    }
-
-    // Remove an object from the scene
-    removeObjectFromScene(object: THREE.Object3D) {
-        this.pc.scene.remove(object);
-        this.pc.render();
-    }
 
     // Add an object to the scene
     addToScene(object: THREE.Object3D) {

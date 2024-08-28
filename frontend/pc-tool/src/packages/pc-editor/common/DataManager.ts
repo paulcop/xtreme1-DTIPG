@@ -173,7 +173,10 @@ export default class DataManager {
                 this.editor.pc.update2DRect(obj, data as any);
             } else if (obj instanceof Box2D) {
                 this.editor.pc.update2DBox(obj, data as any);
+            } else if (obj instanceof THREE.Object3D) {
+                this.editor.pc.updateObjectTransform(obj, data as any);
             }
+
         });
 
         this.onAnnotatesChange(objects, frame, { type: 'transform', datas });

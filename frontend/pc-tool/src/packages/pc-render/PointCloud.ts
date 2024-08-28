@@ -99,7 +99,15 @@ export default class PointCloud extends THREE.EventDispatcher {
         if (scale) object.scale.copy(scale);
         if (position) object.position.copy(position);
         if (rotation) object.rotation.copy(rotation);
+
+        console.log('Object transform:', object.position);
         this.dispatchEvent({ type: Event.OBJECT_TRANSFORM, data: { object, option } });
+
+        // Check if the object is a point and notify Editor to update lines
+        if (object.userData.isPoint) {
+            this.dispatchEvent({ type: 'update-lines', data: { object } });
+        }
+
         this.render();
     }
 
