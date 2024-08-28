@@ -93,15 +93,24 @@ export default class PointCloud extends THREE.EventDispatcher {
 
     // general *************************************
     updateObjectTransform(object: THREE.Object3D, option: Partial<ITransform>) {
-        //   console.log(scale, position)
-        let { scale, position, rotation } = option;
-
+        const { scale, position, rotation } = option;
+        console.log("update object")
         if (scale) object.scale.copy(scale);
         if (position) object.position.copy(position);
         if (rotation) object.rotation.copy(rotation);
+
         this.dispatchEvent({ type: Event.OBJECT_TRANSFORM, data: { object, option } });
-        this.render();
+
+        // Mark the object's geometry as needing an update if it's a point
+        if (object.userData.isPoint) {
+            console.log('Updating point geometry');
+            object.geometry.attributes.position.needsUpdate = true;
+            object.geometry.computeBoundingSphere();
+        }
+
+        this.render(); // Trigger a render to update the view
     }
+
 
     update2DRect(object: Rect, option: { center?: THREE.Vector2; size?: THREE.Vector2 }) {
         //   console.log(scale, position)
@@ -139,29 +148,33 @@ export default class PointCloud extends THREE.EventDispatcher {
     }
 
     selectObject(object?: AnnotateObject | AnnotateObject[]) {
-        let preSelection = this.selection;
+        console.log("select")
+        const preSelection = this.selection;
         let selection: AnnotateObject[] = [];
         if (object) {
             selection = Array.isArray(object) ? object : [object];
         }
-        // else {
-        //     this.selection = [];
-        // }
-        // selection = selection.filter((item) => item.visible !== false);
+
+        // Filter out objects that aren't visible
+        selection = selection.filter((item) => item.visible !== false);
         this.selection = selection;
 
         this.selectionMap = {};
         selection.forEach((e) => {
             this.selectionMap[e.uuid] = e;
-            console.log('Objet sélectionné:', e);
+            console.log('Selected object:', e);
         });
 
+        // Notify listeners about the selection change
         this.dispatchEvent({
             type: Event.SELECT,
             data: { preSelection, curSelection: this.selection },
         });
+
+        // Trigger a render
         this.render();
     }
+
     selectObjectById(id: string) {
         const objects = [...this.getAnnotate3D(), ...this.getAnnotate2D()];
         this.selectObject(objects.find((o) => o.uuid == id));
@@ -270,13 +283,25 @@ export default class PointCloud extends THREE.EventDispatcher {
 
     // Méthode pour récupérer les annotations de points 3D
     getAnnotatePoints3D(): THREE.Object3D[] {
-        console.log("Points 3D annotés :", this.annotations.filter(object => object.userData.isPoint));
-        return this.annotations.filter(object => object.userData.isPoint);
+        let allPoints: THREE.Object3D[] = [];
+
+        // Iterate over each point group
+        for (const groupName in this.pointGroups) {
+            const { pointsGroup } = this.pointGroups[groupName];
+
+            // Collect all points in the pointsGroup
+            allPoints = allPoints.concat(pointsGroup.children);
+        }
+
+        console.log("All annotated 3D points:", allPoints);
+        return allPoints;
     }
 
     // Exemple d'ajout d'une annotation (vous pouvez avoir une méthode similaire existante)
     addAnnotation(object: THREE.Object3D) {
         this.annotations.push(object);
+        this.scene.add(object);  // Ensure the object is also added to the scene
+        this.render();           // Trigger a render to show the new point
     }
 
     clearData() {

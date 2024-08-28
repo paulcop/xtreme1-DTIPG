@@ -40,6 +40,7 @@ import { nanoid } from 'nanoid';
 import Mustache from 'mustache';
 import BSError from './common/BSError';
 import * as locale from './lang';
+import PointGroup from './utils/pointGroup';
 import * as utils from './utils';
 import { RegisterFn, ModalFn, MsgFn, ConfirmFn, LoadingFn } from './uitype';
 import TaskManager from './common/TaskManager/TaskManager';
@@ -105,6 +106,7 @@ export default class Editor extends THREE.EventDispatcher {
         this.modelManager = new ModelManager(this);
         this.trackManager = new TrackManager(this);
         this.taskManager = new TaskManager(this);
+        this.pointGroups = {};
 
         handleHack(this);
 
@@ -283,12 +285,121 @@ export default class Editor extends THREE.EventDispatcher {
     //////////////////////////////////////////////////////////////////
     //   Line 3D annotation   //
 
+
+
     // Method to enter point creation mode
     enterCreate3DPointMode() {
         this.clearCurrentMode();
         this.state.config.currentTool = 'create3DPoint';
         this.enablePointPlacement();  // Enables the selection of points for creation
     }
+
+    /// Create a new group of points with a given name
+    createPointGroup(groupName: string): { pointsGroup: THREE.Group; linesGroup: THREE.Group } {
+        if (this.pointGroups[groupName]) {
+            console.warn(`Group ${groupName} already exists!`);
+            return this.pointGroups[groupName];
+        }
+
+        const pointsGroup = new THREE.Group();
+        pointsGroup.name = `${groupName}-points`;
+
+        const linesGroup = new THREE.Group();
+        linesGroup.name = `${groupName}-lines`;
+
+        this.pc.scene.add(pointsGroup);
+        this.pc.scene.add(linesGroup);
+
+        this.pointGroups[groupName] = { pointsGroup, linesGroup };
+        return this.pointGroups[groupName];
+    }
+
+    // Add a point to a group and connect it with the previous point
+    addPointToGroup(point: THREE.Object3D, groupName: string) {
+        const group = this.pointGroups[groupName];
+        if (!group) {
+            console.error(`Group ${groupName} does not exist!`);
+            return;
+        }
+
+        // Add the point to the pointsGroup
+        group.pointsGroup.add(point);
+
+        // If there's more than one point, connect with the previous point
+        if (group.pointsGroup.children.length > 1) {
+            const previousPoint = group.pointsGroup.children[group.pointsGroup.children.length - 2];
+            const line = this.createLineBetweenPoints(previousPoint, point);
+            group.linesGroup.add(line);
+        }
+
+        this.pc.render();
+    }
+
+    // Remove a point from a group and update the lines
+    removePointFromGroup(point: THREE.Object3D, groupName: string) {
+        const group = this.pointGroups[groupName];
+        if (!group) {
+            console.error(`Group ${groupName} does not exist!`);
+            return;
+        }
+
+        const pointIndex = group.pointsGroup.children.indexOf(point);
+        if (pointIndex !== -1) {
+            // Remove the point
+            group.pointsGroup.remove(point);
+
+            // Remove the connected line before or after this point
+            if (pointIndex > 0) {
+                const prevLine = group.linesGroup.children[pointIndex - 1];
+                group.linesGroup.remove(prevLine);
+            }
+            if (pointIndex < group.pointsGroup.children.length - 1) {
+                const nextLine = group.linesGroup.children[pointIndex];
+                group.linesGroup.remove(nextLine);
+
+                // Reconnect the remaining points
+                if (pointIndex > 0) {
+                    const newLine = this.createLineBetweenPoints(
+                        group.pointsGroup.children[pointIndex - 1],
+                        group.pointsGroup.children[pointIndex]
+                    );
+                    group.linesGroup.add(newLine);
+                }
+            }
+
+            this.pc.render();
+        }
+    }
+
+    // Move a point within a group and update the connected lines
+    movePointInGroup(point: THREE.Object3D, newPosition: THREE.Vector3, groupName: string) {
+        const group = this.pointGroups[groupName];
+        if (!group) {
+            console.error(`Group ${groupName} does not exist!`);
+            return;
+        }
+
+        point.position.copy(newPosition);
+
+        const pointIndex = group.pointsGroup.children.indexOf(point);
+        if (pointIndex > 0) {
+            const prevLine = group.linesGroup.children[pointIndex - 1];
+            prevLine.geometry.setFromPoints([
+                group.pointsGroup.children[pointIndex - 1].position,
+                point.position,
+            ]);
+        }
+        if (pointIndex < group.pointsGroup.children.length - 1) {
+            const nextLine = group.linesGroup.children[pointIndex];
+            nextLine.geometry.setFromPoints([
+                point.position,
+                group.pointsGroup.children[pointIndex + 1].position,
+            ]);
+        }
+
+        this.pc.render();
+    }
+
 
     // Method to update lines between a list of points
     updateLinesBetweenPoints(points: THREE.Object3D[]) {
@@ -371,10 +482,13 @@ export default class Editor extends THREE.EventDispatcher {
             throw new Error('Les points fournis à createLineBetweenPoints ne peuvent pas être undefined');
         }
 
+        console.log(`Point1 position:`, point1.position);
+        console.log(`Point2 position:`, point2.position);
+
         const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
         const geometry = new THREE.BufferGeometry().setFromPoints([
             point1.position,
-            point2.position,
+            point2.position
         ]);
         return new THREE.Line(geometry, material);
     }
@@ -403,14 +517,17 @@ export default class Editor extends THREE.EventDispatcher {
 
     // Method to handle point movement
     moveSelectedPoint(newPosition: THREE.Vector3) {
-        if (this.pc.selection.length === 1) {
-            const selectedPoint = this.pc.selection[0];
-            if (selectedPoint.userData.isPoint) {
-                selectedPoint.position.copy(newPosition);
-                this.pc.render();
+        const selectedObject = this.pc.selection[0];
+        if (selectedObject && selectedObject.userData.isPoint) {
+            console.log("moveSelectedPoint called with newPosition:", newPosition);
 
-                // Update lines dynamically after moving the point
-                this.updateLines();
+            // Find the group that contains this point
+            const group = Object.values(this.pointGroups).find(g => g.children.includes(selectedObject));
+            if (group) {
+                const groupName = group.name;
+                this.movePointInGroup(selectedObject, newPosition, groupName);
+            } else {
+                console.error("Point not found in any group");
             }
         }
     }
@@ -620,10 +737,11 @@ export default class Editor extends THREE.EventDispatcher {
     }
 
     toggleTranslate(flag: boolean, object?: THREE.Object3D) {
-        let view = this.viewManager.getMainView();
-        let action = view.getAction('transform-control') as TransformControlsAction;
+        const view = this.viewManager.getMainView();
+        const action = view.getAction('transform-control') as TransformControlsAction;
+
         // Rechercher un objet de type Box ou un point si aucun objet n'est spécifié
-        let selectedObject = object || this.pc.selection.find(
+        const selectedObject = object || this.pc.selection.find(
             (annotate) => annotate instanceof Box || annotate.userData.isPoint
         );
 
@@ -633,11 +751,30 @@ export default class Editor extends THREE.EventDispatcher {
         }
 
         if (flag) {
+            console.log('translation de truc')
+            // Attach the object to the transform controls
             action.control.attach(selectedObject);
+
+            // Ensure the transform controls are properly updated
+            action.control.addEventListener('change', () => {
+                this.pc.render();  // Re-render the scene when the object is transformed
+            });
+
+            // Handle translation by updating the object's position directly
+            action.control.addEventListener('objectChange', () => {
+                if (selectedObject.userData.isPoint) {
+                    this.moveSelectedPoint(selectedObject.position.clone());
+                }
+            });
+
         } else {
+            // Detach the object from the transform controls
             action.control.detach();
+            action.control.removeEventListener('change', () => this.pc.render());
+            action.control.removeEventListener('objectChange', () => this.moveSelectedPoint(selectedObject.position.clone()));
         }
     }
+
 
     blurPage() {
         if (document.activeElement && document.activeElement !== document.body) {

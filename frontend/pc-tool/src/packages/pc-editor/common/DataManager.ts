@@ -162,6 +162,7 @@ export default class DataManager {
         datas: IAnnotateTransform | IAnnotateTransform[],
         frame?: IFrame,
     ) {
+        console.log('setAnnotatesTransform');
         if (!Array.isArray(objects)) objects = [objects];
 
         frame = frame || this.editor.getCurrentFrame();
@@ -173,6 +174,8 @@ export default class DataManager {
                 this.editor.pc.update2DRect(obj, data as any);
             } else if (obj instanceof Box2D) {
                 this.editor.pc.update2DBox(obj, data as any);
+            } else if (obj instanceof THREE.Object3D) {  // Handle point objects
+                this.editor.pc.updateObjectTransform(obj, data as any);
             }
         });
 

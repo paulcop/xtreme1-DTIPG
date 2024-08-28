@@ -244,35 +244,26 @@ function create3DLineAnnotation(editor: Editor, points2D: THREE.Vector2[]) {
     return points;
 }
 
-function createPointAnnotation(editor: Editor, position: THREE.Vector3, userData: any): THREE.Mesh {
+function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupName: string): THREE.Mesh {
     const pointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
     const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const point = new THREE.Mesh(pointGeometry, pointMaterial);
 
+    console.log('Creating point at:', position);
+
+    // Set the point's position based on the provided 3D world position
     point.position.copy(position);
-
-    if (!userData) {
-        userData = {};
-    }
-
-    if (!userData.id) {
-        userData.id = nanoid(); // Ensure each point has a unique id
-    }
-
-    point.userData = userData;
     point.userData.isPoint = true;
+    point.userData.id = nanoid(); // Assign a unique ID to the point
 
-    editor.pc.scene.add(point);
-
-    if (editor.pc.annotations) {
-        editor.pc.annotations.push(point);
-    } else {
-        console.warn("Annotations array is not defined in editor.pc.");
-    }
+    // Add the point to the specified group and ensure it's positioned correctly
+    editor.addPointToGroup(point, groupName);
 
     return point;
 }
 
+
+// Example function to handle point creation and grouping
 export const create3DLine = define({
     valid(editor: Editor) {
         let state = editor.state;
@@ -310,28 +301,16 @@ export const create3DLine = define({
                             return;
                         }
 
+                        const groupName = 'MyPointGroup';  // Example group name
+                        editor.createPointGroup(groupName);  // Ensure the group is created
+
                         // Create the 3D points and dynamically draw lines between them
-                        const points = create3DLineAnnotation(editor, data);
-
-                        editor.cmdManager.withGroup(() => {
-                            points.forEach(point => {
-                                editor.cmdManager.execute('add-object', point);
-                            });
-
-                            if (editor.state.isSeriesFrame) {
-                                let trackObject: Partial<IObject> = {
-                                    trackId: points[0].userData.trackId,
-                                    trackName: points[0].userData.trackName,
-                                    classType: points[0].userData.classType,
-                                    classId: points[0].userData.classId,
-                                };
-                                editor.cmdManager.execute('add-track', trackObject);
-                            }
-
-                            editor.cmdManager.execute('select-object', points);
+                        data.forEach(pointData => {
+                            const worldPosition = view.canvasToWorld(pointData);
+                            createPointAnnotation(editor, worldPosition, groupName);
                         });
 
-                        resolve(points);
+                        resolve();
                     }
                 );
             });
