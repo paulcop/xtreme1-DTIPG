@@ -208,42 +208,6 @@ export const createObjectWith3 = define({
     },
 });
 
-
-function create3DLineAnnotation(editor: Editor, points2D: THREE.Vector2[]) {
-    if (!editor.pc) {
-        console.error('editor.pc is not initialized');
-        return null;
-    }
-
-    let view = editor.pc.renderViews.find((e) => e instanceof MainRenderView) as MainRenderView;
-
-    if (!view) {
-        console.error('MainRenderView is not available');
-        return null;
-    }
-
-    // Convert 2D points to 3D points using the main view
-    const points3D = points2D.map(point2D => view.canvasToWorld(point2D));
-
-    // Create annotated 3D points
-    const points = points3D.map((point3D, index) => {
-        return createPointAnnotation(editor, point3D, {
-            id: nanoid(),
-            trackId: editor.createTrackId(),
-            trackName: `Line-${editor.idCount}-${index}`,
-            classType: editor.state.currentClass,
-            classId: editor.classMap.get(editor.state.currentClass)?.id,
-            isAnnotation: true,
-        });
-    });
-
-    // Add points to the scene and draw lines between them dynamically
-    points.forEach(point => editor.addToScene(point));
-    editor.updateLinesBetweenPoints(points);
-
-    return points;
-}
-
 function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupName: string): THREE.Mesh {
     const pointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
     const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -264,6 +228,10 @@ function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupNam
     point.position.copy(position);
     point.userData.isPoint = true;
     point.userData.id = nanoid();
+    point.userData.trackId = editor.createTrackId();
+    point.matrixAutoUpdate = true;
+    point.updateMatrixWorld();
+    point.uuid = point.userData.id;
 
     if (editor.pc.annotations) {
         editor.pc.annotations.push(point);
@@ -328,6 +296,8 @@ export const create3DLine = define({
                             points.forEach(point => {
                                 editor.cmdManager.execute('add-object', point);
                             });
+
+                            editor.state.config.showClassView = true;
 
                             if (editor.state.isSeriesFrame) {
                                 let trackObject: Partial<IObject> = {

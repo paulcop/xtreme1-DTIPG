@@ -62,6 +62,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         this.scene.add(
             this.groupPoints,
             this.annotate3D,
+            this.annotate2D,
             this.ground,
             this.trimBox,
             this.groupTrack,

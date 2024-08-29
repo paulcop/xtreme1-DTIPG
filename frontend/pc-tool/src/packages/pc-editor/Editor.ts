@@ -44,6 +44,7 @@ import PointGroup from './utils/pointGroup';
 import * as utils from './utils';
 import { RegisterFn, ModalFn, MsgFn, ConfirmFn, LoadingFn } from './uitype';
 import TaskManager from './common/TaskManager/TaskManager';
+import {forEach} from "lodash";
 
 type LocaleType = typeof locale;
 
@@ -112,9 +113,9 @@ export default class Editor extends THREE.EventDispatcher {
 
         this.initEvent();
 
-        this.pc.addEventListener('update-lines', (event) => {
+        /*this.pc.addEventListener('update-lines', (event) => {
             this.updateLines(event.data.object);
-            });
+            });*/
 
         // util
         this.blurPage = _.throttle(this.blurPage.bind(this), 40);
@@ -123,36 +124,18 @@ export default class Editor extends THREE.EventDispatcher {
     initEvent() {
         let config = this.state.config;
 
-        this.pc.addEventListener(RenderEvent.CLICK, (event) => {
-            const intersects = this.pc.getIntersects(event);
-            if (intersects.length > 0) {
-                console.log('Intersected object:', intersects[0].object);
-                if (intersects[0].object.userData.isPoint) {
-                    console.log('Point clicked:', intersects[0].object);
-                    this.selectPoint(intersects[0].object);
-                } else if (intersects[0].object instanceof Box) {
-                    console.log('Box clicked:', intersects[0].object);
-                    this.selectBox(intersects[0].object);
-                }
-            } else {
-                console.log('No intersection detected');
-            }
-        });
-
         // Gestion de la sélection des objets
         this.pc.addEventListener(RenderEvent.SELECT, (data) => {
-            console.log('RenderEvent.SELECT triggered:', data);
 
             let selection = this.pc.selection;
             let selectedObject = selection.find((annotate) => annotate instanceof THREE.Object3D);
 
             // Vérifier si l'objet sélectionné est un point ou une boîte
             if (selectedObject) {
-                console.log('Selected Object:', selectedObject);
+                console.log('Selected Object:');
 
                 // Si c'est une boîte ou un point, activer la translation si nécessaire
                 if (config.activeTranslate && (selectedObject instanceof Box || selectedObject.userData.isPoint)) {
-                    console.log('Activating translation for:', selectedObject);
                     this.toggleTranslate(true, selectedObject);
                 }
                 this.updateTrack(); // Mettre à jour le suivi du point ou de la boîte
@@ -198,6 +181,9 @@ export default class Editor extends THREE.EventDispatcher {
         const selection = this.pc.selection;
         const userData =
             selection.length > 0 ? (selection[0].userData as Required<IUserData>) : undefined;
+        if (selection.length > 0 && selection[0].userData.isPoint) {
+            this.movePointInGroup(selection[0], selection[0].position, selection[0].userData.groupName);
+        }
 
         this.setCurrentTrack(
             userData ? userData.trackId : undefined,
@@ -360,40 +346,49 @@ export default class Editor extends THREE.EventDispatcher {
         this.pc.render();
     }
 
+    // Remove a point from a group and update the lines
+    removePointFromGroup(point: THREE.Object3D, groupName: string) {
+        const group = this.pointGroups[groupName];
+        if (!group) {
+            console.error(`Group ${groupName} does not exist!`);
+            return;
+        }
 
-    // Method to update lines between a list of points
-    updateLinesBetweenPoints(points: THREE.Object3D[]) {
-        if (points.length < 2) return;
 
-        // Clear any existing lines
-        this.clearExistingLines();
+        const pointIndex = group.pointsGroup.children.indexOf(point);
+        if (pointIndex !== -1) {
+            // Remove the point
+            group.pointsGroup.remove(point);
 
-        // Create and add lines between the points
-        for (let i = 1; i < points.length; i++) {
-            const prevPoint = points[i - 1];
-            const currPoint = points[i];
+            // Remove the connected line before or after this point
+            if (pointIndex > 0) {
+                const prevLine = group.linesGroup.children[pointIndex - 1];
+                group.linesGroup.remove(prevLine);
+            }
+            if (pointIndex < group.pointsGroup.children.length - 1) {
+                const nextLine = group.linesGroup.children[pointIndex];
+                group.linesGroup.remove(nextLine);
 
-            // Vérification des points
-            if (!prevPoint || !currPoint) {
-                console.error('Un des points est undefined:', { prevPoint, currPoint });
-                continue; // Passe à l'itération suivante si un point est undefined
+                // Reconnect the remaining points
+                if (pointIndex > 0) {
+                    const newLine = this.createLineBetweenPoints(
+                        group.pointsGroup.children[pointIndex - 1],
+                        group.pointsGroup.children[pointIndex]
+                    );
+                    group.linesGroup.add(newLine);
+                }
             }
 
-            const line = this.createLineBetweenPoints(prevPoint, currPoint);
-            this.addToScene(line);
-        }
-    }
+            this.pc.render();
 
-    // Update lines between all points in the list
-    updateLines() {
-        this.clearExistingLines();  // Clear any existing lines from the scene
 
-        if (this.points.length > 1) {
-            for (let i = 1; i < this.points.length; i++) {
-                const line = this.createLineBetweenPoints(this.points[i - 1], this.points[i]);
-                this.addToScene(line);
-            }
         }
+        // print points groupe and lines groupe
+        forEach(this.pointGroups, (value, key) => {
+            console.log(`Group name: ${key}`);
+            console.log(`Points group:`, value.pointsGroup.children);
+            console.log(`Lines group:`, value.linesGroup.children);
+        });
     }
 
     // Create a line between two points
@@ -403,8 +398,8 @@ export default class Editor extends THREE.EventDispatcher {
             throw new Error('Les points fournis à createLineBetweenPoints ne peuvent pas être undefined');
         }
 
-        console.log(`Point1 position:`, point1.position);
-        console.log(`Point2 position:`, point2.position);
+        //console.log(`Point1 position:`, point1.position);
+        //console.log(`Point2 position:`, point2.position);
 
         const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
         const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -412,93 +407,6 @@ export default class Editor extends THREE.EventDispatcher {
             point2.position
         ]);
         return new THREE.Line(geometry, material);
-    }
-
-    // Clear existing lines from the scene
-    clearExistingLines() {
-        const lines = this.pc.scene.children.filter((obj) => obj instanceof THREE.Line);
-        lines.forEach((line) => {
-            this.pc.scene.remove(line);
-        });
-        this.pc.render(); // Re-render the scene
-    }
-
-    // Method to handle point selection
-    selectPoint(point: THREE.Object3D) {
-        this.pc.selectObject(point);
-        this.updateSelectedPoint(point);
-    }
-
-    // Update the selected point's properties (e.g., color)
-    updateSelectedPoint(point: THREE.Object3D) {
-        point.userData.isSelected = true;
-        (point.material as THREE.MeshBasicMaterial).color.setHex(0x0000ff); // Change color to blue when selected
-        this.pc.render();
-    }
-
-    // Method to handle point movement
-    moveSelectedPoint(newPosition: THREE.Vector3) {
-        const selectedObject = this.pc.selection[0];
-        if (selectedObject && selectedObject.userData.isPoint) {
-            console.log("moveSelectedPoint called with newPosition:", newPosition);
-
-            // Find the group that contains this point
-            const group = Object.values(this.pointGroups).find(g => g.children.includes(selectedObject));
-            if (group) {
-                const groupName = group.name;
-                this.movePointInGroup(selectedObject, newPosition, groupName);
-            } else {
-                console.error("Point not found in any group");
-            }
-        }
-    }
-
-    // Method to remove a selected point from the scene
-    deleteSelectedPoint() {
-        if (this.pc.selection.length === 1) {
-            const selectedPoint = this.pc.selection[0];
-            if (selectedPoint.userData.isPoint) {
-                const pointIndex = this.points.indexOf(selectedPoint);
-                if (pointIndex > -1) {
-                    this.points.splice(pointIndex, 1);
-                    this.removeObjectFromScene(selectedPoint);
-
-                    // Update lines dynamically after removing the point
-                    this.updateLines();
-                }
-            }
-        }
-    }
-
-    // Remove an object from the scene
-    removeObjectFromScene(object: THREE.Object3D) {
-        this.pc.scene.remove(object);
-        this.pc.render();
-    }
-
-    // Add an object to the scene
-    addToScene(object: THREE.Object3D) {
-        if (!this.pc.scene) {
-            console.error("Point cloud scene is not initialized.");
-            return;
-        }
-
-        this.pc.scene.add(object);
-        this.pc.render();
-    }
-
-    // Get the clicked point in the point cloud
-    getClickedPoint(event): THREE.Vector3 | null {
-        const intersects = this.pc.getIntersects(event);
-        if (intersects.length > 0) {
-            return intersects[0].point;
-        }
-        return null;
-    }
-
-    // Méthode pour effacer le mode actuel (clear current mode)
-    clearCurrentMode() {
-        this.dispatchEvent({ type: Event.CLEAR_MODE });
     }
 
     //  Fin de la ligne 3D annotation   //
