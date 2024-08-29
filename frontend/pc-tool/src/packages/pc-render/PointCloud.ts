@@ -93,24 +93,23 @@ export default class PointCloud extends THREE.EventDispatcher {
 
     // general *************************************
     updateObjectTransform(object: THREE.Object3D, option: Partial<ITransform>) {
-        const { scale, position, rotation } = option;
-        console.log("update object")
+        //   console.log(scale, position)
+        let { scale, position, rotation } = option;
+
         if (scale) object.scale.copy(scale);
         if (position) object.position.copy(position);
         if (rotation) object.rotation.copy(rotation);
 
+        console.log('Object transform:', object.position);
         this.dispatchEvent({ type: Event.OBJECT_TRANSFORM, data: { object, option } });
 
-        // Mark the object's geometry as needing an update if it's a point
+        // Check if the object is a point and notify Editor to update lines
         if (object.userData.isPoint) {
-            console.log('Updating point geometry');
-            object.geometry.attributes.position.needsUpdate = true;
-            object.geometry.computeBoundingSphere();
+            this.dispatchEvent({ type: 'update-lines', data: { object } });
         }
 
-        this.render(); // Trigger a render to update the view
+        this.render();
     }
-
 
     update2DRect(object: Rect, option: { center?: THREE.Vector2; size?: THREE.Vector2 }) {
         //   console.log(scale, position)
@@ -148,35 +147,31 @@ export default class PointCloud extends THREE.EventDispatcher {
     }
 
     selectObject(object?: AnnotateObject | AnnotateObject[]) {
-        console.log("select")
-        const preSelection = this.selection;
+        let preSelection = this.selection;
         let selection: AnnotateObject[] = [];
         if (object) {
             selection = Array.isArray(object) ? object : [object];
         }
-
-        // Filter out objects that aren't visible
-        selection = selection.filter((item) => item.visible !== false);
+        // else {
+        //     this.selection = [];
+        // }
+        // selection = selection.filter((item) => item.visible !== false);
         this.selection = selection;
 
         this.selectionMap = {};
         selection.forEach((e) => {
             this.selectionMap[e.uuid] = e;
-            console.log('Selected object:', e);
+            console.log('Objet sélectionné:', e);
         });
 
-        // Notify listeners about the selection change
         this.dispatchEvent({
             type: Event.SELECT,
             data: { preSelection, curSelection: this.selection },
         });
-
-        // Trigger a render
         this.render();
     }
-
     selectObjectById(id: string) {
-        const objects = [...this.getAnnotate3D(), ...this.getAnnotate2D()];
+        const objects = [...this.getAnnotate3D(), ...this.getAnnotate2D(), ...this.getAnnotatePoints3D()];
         this.selectObject(objects.find((o) => o.uuid == id));
     }
     addObject(objects: AnnotateObject | AnnotateObject[]) {
@@ -283,25 +278,13 @@ export default class PointCloud extends THREE.EventDispatcher {
 
     // Méthode pour récupérer les annotations de points 3D
     getAnnotatePoints3D(): THREE.Object3D[] {
-        let allPoints: THREE.Object3D[] = [];
-
-        // Iterate over each point group
-        for (const groupName in this.pointGroups) {
-            const { pointsGroup } = this.pointGroups[groupName];
-
-            // Collect all points in the pointsGroup
-            allPoints = allPoints.concat(pointsGroup.children);
-        }
-
-        console.log("All annotated 3D points:", allPoints);
-        return allPoints;
+        console.log("Points 3D annotés :", this.annotations.filter(object => object.userData.isPoint));
+        return this.annotations.filter(object => object.userData.isPoint);
     }
 
     // Exemple d'ajout d'une annotation (vous pouvez avoir une méthode similaire existante)
     addAnnotation(object: THREE.Object3D) {
         this.annotations.push(object);
-        this.scene.add(object);  // Ensure the object is also added to the scene
-        this.render();           // Trigger a render to show the new point
     }
 
     clearData() {

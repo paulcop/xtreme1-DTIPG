@@ -112,6 +112,10 @@ export default class Editor extends THREE.EventDispatcher {
 
         this.initEvent();
 
+        this.pc.addEventListener('update-lines', (event) => {
+            this.updateLines(event.data.object);
+            });
+
         // util
         this.blurPage = _.throttle(this.blurPage.bind(this), 40);
     }
@@ -285,15 +289,6 @@ export default class Editor extends THREE.EventDispatcher {
     //////////////////////////////////////////////////////////////////
     //   Line 3D annotation   //
 
-
-
-    // Method to enter point creation mode
-    enterCreate3DPointMode() {
-        this.clearCurrentMode();
-        this.state.config.currentTool = 'create3DPoint';
-        this.enablePointPlacement();  // Enables the selection of points for creation
-    }
-
     /// Create a new group of points with a given name
     createPointGroup(groupName: string): { pointsGroup: THREE.Group; linesGroup: THREE.Group } {
         if (this.pointGroups[groupName]) {
@@ -324,6 +319,7 @@ export default class Editor extends THREE.EventDispatcher {
 
         // Add the point to the pointsGroup
         group.pointsGroup.add(point);
+        point.userData.groupName = groupName;
 
         // If there's more than one point, connect with the previous point
         if (group.pointsGroup.children.length > 1) {
@@ -333,42 +329,6 @@ export default class Editor extends THREE.EventDispatcher {
         }
 
         this.pc.render();
-    }
-
-    // Remove a point from a group and update the lines
-    removePointFromGroup(point: THREE.Object3D, groupName: string) {
-        const group = this.pointGroups[groupName];
-        if (!group) {
-            console.error(`Group ${groupName} does not exist!`);
-            return;
-        }
-
-        const pointIndex = group.pointsGroup.children.indexOf(point);
-        if (pointIndex !== -1) {
-            // Remove the point
-            group.pointsGroup.remove(point);
-
-            // Remove the connected line before or after this point
-            if (pointIndex > 0) {
-                const prevLine = group.linesGroup.children[pointIndex - 1];
-                group.linesGroup.remove(prevLine);
-            }
-            if (pointIndex < group.pointsGroup.children.length - 1) {
-                const nextLine = group.linesGroup.children[pointIndex];
-                group.linesGroup.remove(nextLine);
-
-                // Reconnect the remaining points
-                if (pointIndex > 0) {
-                    const newLine = this.createLineBetweenPoints(
-                        group.pointsGroup.children[pointIndex - 1],
-                        group.pointsGroup.children[pointIndex]
-                    );
-                    group.linesGroup.add(newLine);
-                }
-            }
-
-            this.pc.render();
-        }
     }
 
     // Move a point within a group and update the connected lines
@@ -422,45 +382,6 @@ export default class Editor extends THREE.EventDispatcher {
             const line = this.createLineBetweenPoints(prevPoint, currPoint);
             this.addToScene(line);
         }
-    }
-
-    // Enable point placement
-    enablePointPlacement() {
-        const pointCloud = this.pc;
-
-        const onClick = (event) => {
-            const point = this.getClickedPoint(event);  // Get the 3D coordinates of the clicked point
-            if (point) {
-                this.addPoint(point);
-            }
-        };
-
-        pointCloud.addEventListener(RenderEvent.CLICK, onClick);
-
-        this.once(Event.CLEAR_MODE, () => {
-            pointCloud.removeEventListener(RenderEvent.CLICK, onClick);
-        });
-    }
-
-    // Add a point to the scene and list
-    addPoint(point: THREE.Vector3) {
-        const pointObject = this.createPointObject(point);
-        this.points.push(pointObject);
-        this.addToScene(pointObject);
-
-        // Draw lines between all points in the same list
-        this.updateLines();
-    }
-
-    // Create a point object for visualization in the scene
-    createPointObject(point: THREE.Vector3): THREE.Object3D {
-        const geometry = new THREE.SphereGeometry(0.1, 16, 16);
-        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for the point
-        const sphere = new THREE.Mesh(geometry, material);
-        sphere.position.copy(point);
-        sphere.userData.isPoint = true;
-        this.pc.scene.add(sphere); // Ensure the point is added to the scene
-        return sphere;
     }
 
     // Update lines between all points in the list
@@ -763,7 +684,7 @@ export default class Editor extends THREE.EventDispatcher {
             // Handle translation by updating the object's position directly
             action.control.addEventListener('objectChange', () => {
                 if (selectedObject.userData.isPoint) {
-                    this.moveSelectedPoint(selectedObject.position.clone());
+                    this.movePointInGroup(selectedObject, selectedObject.position, selectedObject.userData.groupName);
                 }
             });
 
@@ -771,7 +692,7 @@ export default class Editor extends THREE.EventDispatcher {
             // Detach the object from the transform controls
             action.control.detach();
             action.control.removeEventListener('change', () => this.pc.render());
-            action.control.removeEventListener('objectChange', () => this.moveSelectedPoint(selectedObject.position.clone()));
+            action.control.removeEventListener('objectChange', () => this.movePointInGroup(selectedObject, selectedObject.position, selectedObject.userData.groupName));
         }
     }
 
@@ -789,8 +710,9 @@ export default class Editor extends THREE.EventDispatcher {
     selectByTrackId(trackId: string) {
         let annotate2D = this.pc.getAnnotate2D();
         let annotate3D = this.pc.getAnnotate3D();
+        let annotatePoints3D = this.pc.getAnnotatePoints3D();
 
-        let filters = [...annotate3D, ...annotate2D].filter((e) => e.userData.trackId === trackId);
+        let filters = [...annotate3D, ...annotate2D, ...annotatePoints3D].filter((e) => e.userData.trackId === trackId);
         this.pc.selectObject(filters);
     }
 

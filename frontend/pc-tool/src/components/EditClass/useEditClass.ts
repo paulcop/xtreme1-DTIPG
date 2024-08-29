@@ -193,11 +193,11 @@ export default function useEditClass() {
         let trackVisible = false;
         let rectTitle = $$('rect-title');
         let boxTitle = $$('box-title');
-        let pointTitle = $$('point-title');
+        let pointTitle = $$('point-title'); // Ajoutez un titre pour les points
         state.resultInstances = tempObjects.map((e) => {
             let userData = e.userData as Required<IUserData>;
             let is3D = e instanceof Box;
-            let isPoint = userData.isPoint;
+            let isPoint = userData.isPoint; // Vérifiez si c'est un point
             let info = is3D ? $$('cloud-object') : (isPoint ? pointTitle : $$('image-object'));
 
             if (e.visible) trackVisible = true;
@@ -325,9 +325,14 @@ export default function useEditClass() {
         let ids = Object.keys(trackIdMap);
         if (ids.length === 0) return;
 
+        // let userData = {} as IUserData;
+        // userData.classType = state.classType;
+        // userData.attrs = {};
+        // userData.resultStatus = Const.True_Value;
         let classConfig = editor.getClassType(state.classType);
         editor.cmdManager.execute('update-object-user-data', {
             objects: tempObjects,
+
             data: {
                 classType: classConfig?.name,
                 classId: classConfig?.id,
@@ -437,20 +442,8 @@ function getAnnotateByTrackId(annotates: AnnotateObject[], trackId: string) {
         }
     });
 
-    // Iterate over the point groups and find points with matching trackId
-    const pointGroups = Object.values(editor.pointGroups);
-    pointGroups.forEach(({ pointsGroup }) => {
-        pointsGroup.children.forEach((point: AnnotateObject) => {
-            const userData = point.userData as Required<IUserData>;
-            if (userData.trackId === trackId) {
-                annotatePoints.push(point);
-            }
-        });
-    });
-
     return { annotate2D, annotate3D, annotatePoints };
 }
-
 
 function get2DIndex(viewId: string) {
     return parseInt((viewId.match(/[0-9]{1,5}$/) as any)[0]);
