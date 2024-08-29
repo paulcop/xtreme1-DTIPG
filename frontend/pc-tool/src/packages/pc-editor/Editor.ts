@@ -75,6 +75,7 @@ export default class Editor extends THREE.EventDispatcher {
     modelManager: ModelManager;
     trackManager: TrackManager;
     taskManager: TaskManager;
+    //pointGroups: Record<string, { pointsGroup: THREE.Group;}>;
 
     // ui
     registerModal: RegisterFn = () => {};
@@ -288,8 +289,8 @@ export default class Editor extends THREE.EventDispatcher {
         const linesGroup = new THREE.Group();
         linesGroup.name = `${groupName}-lines`;
 
-        this.pc.scene.add(pointsGroup);
-        this.pc.scene.add(linesGroup);
+        this.pc.scene.add(pointsGroup);  // Add the points group to the scene
+        this.pc.scene.add(linesGroup);   // Add the lines group to the scene
 
         this.pointGroups[groupName] = { pointsGroup, linesGroup };
         return this.pointGroups[groupName];
@@ -298,6 +299,7 @@ export default class Editor extends THREE.EventDispatcher {
     // Add a point to a group and connect it with the previous point
     addPointToGroup(point: THREE.Object3D, groupName: string) {
         const group = this.pointGroups[groupName];
+        console.log(`Adding point to group ${groupName}: `, group.pointsGroup.children);
         if (!group) {
             console.error(`Group ${groupName} does not exist!`);
             return;
@@ -307,11 +309,22 @@ export default class Editor extends THREE.EventDispatcher {
         group.pointsGroup.add(point);
         point.userData.groupName = groupName;
 
-        // If there's more than one point, connect with the previous point
-        if (group.pointsGroup.children.length > 1) {
-            const previousPoint = group.pointsGroup.children[group.pointsGroup.children.length - 2];
+        const pointsInGroup = group.pointsGroup.children;
+        const numPoints = pointsInGroup.length;
+
+        console.log(`Adding point to group ${groupName}: `, pointsInGroup);
+
+        if (numPoints > 1) {
+            const previousPoint = pointsInGroup[numPoints - 2];
             const line = this.createLineBetweenPoints(previousPoint, point);
-            group.linesGroup.add(line);
+
+            // Set up the connections
+            point.userData.prevPoint = previousPoint;
+            point.userData.prevLine = line;
+            previousPoint.userData.nextPoint = point;
+            previousPoint.userData.nextLine = line;
+
+            this.pc.scene.add(line); // Add the line to the scene
         }
 
         this.pc.render();
@@ -327,20 +340,22 @@ export default class Editor extends THREE.EventDispatcher {
 
         point.position.copy(newPosition);
 
-        const pointIndex = group.pointsGroup.children.indexOf(point);
-        if (pointIndex > 0) {
-            const prevLine = group.linesGroup.children[pointIndex - 1];
-            prevLine.geometry.setFromPoints([
-                group.pointsGroup.children[pointIndex - 1].position,
+        // Update the previous line
+        if (point.userData.prevLine) {
+            point.userData.prevLine.geometry.setFromPoints([
+                point.userData.prevPoint.position,
                 point.position,
             ]);
+            point.userData.prevLine.geometry.attributes.position.needsUpdate = true;
         }
-        if (pointIndex < group.pointsGroup.children.length - 1) {
-            const nextLine = group.linesGroup.children[pointIndex];
-            nextLine.geometry.setFromPoints([
+
+        // Update the next line
+        if (point.userData.nextLine) {
+            point.userData.nextLine.geometry.setFromPoints([
                 point.position,
-                group.pointsGroup.children[pointIndex + 1].position,
+                point.userData.nextPoint.position,
             ]);
+            point.userData.nextLine.geometry.attributes.position.needsUpdate = true;
         }
 
         this.pc.render();
@@ -354,41 +369,39 @@ export default class Editor extends THREE.EventDispatcher {
             return;
         }
 
-
-        const pointIndex = group.pointsGroup.children.indexOf(point);
-        if (pointIndex !== -1) {
-            // Remove the point
-            group.pointsGroup.remove(point);
-
-            // Remove the connected line before or after this point
-            if (pointIndex > 0) {
-                const prevLine = group.linesGroup.children[pointIndex - 1];
-                group.linesGroup.remove(prevLine);
+        // Remove the previous line and update the previous point's next connection
+        if (point.userData.prevLine) {
+            this.pc.scene.remove(point.userData.prevLine);
+            if (point.userData.prevPoint) {
+                point.userData.prevPoint.userData.nextLine = null;
+                point.userData.prevPoint.userData.nextPoint = point.userData.nextPoint;
             }
-            if (pointIndex < group.pointsGroup.children.length - 1) {
-                const nextLine = group.linesGroup.children[pointIndex];
-                group.linesGroup.remove(nextLine);
-
-                // Reconnect the remaining points
-                if (pointIndex > 0) {
-                    const newLine = this.createLineBetweenPoints(
-                        group.pointsGroup.children[pointIndex - 1],
-                        group.pointsGroup.children[pointIndex]
-                    );
-                    group.linesGroup.add(newLine);
-                }
-            }
-
-            this.pc.render();
-
-
         }
-        // print points groupe and lines groupe
-        forEach(this.pointGroups, (value, key) => {
-            console.log(`Group name: ${key}`);
-            console.log(`Points group:`, value.pointsGroup.children);
-            console.log(`Lines group:`, value.linesGroup.children);
-        });
+
+        // Remove the next line and update the next point's previous connection
+        if (point.userData.nextLine) {
+            this.pc.scene.remove(point.userData.nextLine);
+            if (point.userData.nextPoint) {
+                point.userData.nextPoint.userData.prevLine = null;
+                point.userData.nextPoint.userData.prevPoint = point.userData.prevPoint;
+            }
+
+            // If there's both a previous and next point, create a new line between them
+            if (point.userData.prevPoint && point.userData.nextPoint) {
+                const newLine = this.createLineBetweenPoints(
+                    point.userData.prevPoint,
+                    point.userData.nextPoint
+                );
+                point.userData.prevPoint.userData.nextLine = newLine;
+                point.userData.nextPoint.userData.prevLine = newLine;
+                this.pc.scene.add(newLine);
+            }
+        }
+
+        // Finally, remove the point from the group
+        group.pointsGroup.remove(point);
+        this.pc.scene.remove(point); // Remove the point from the scene
+        this.pc.render();
     }
 
     // Create a line between two points
@@ -398,8 +411,8 @@ export default class Editor extends THREE.EventDispatcher {
             throw new Error('Les points fournis à createLineBetweenPoints ne peuvent pas être undefined');
         }
 
-        //console.log(`Point1 position:`, point1.position);
-        //console.log(`Point2 position:`, point2.position);
+        console.log(`Point1 position:`, point1.position);
+        console.log(`Point2 position:`, point2.position);
 
         const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
         const geometry = new THREE.BufferGeometry().setFromPoints([

@@ -87,12 +87,12 @@ export default class DataManager {
         let selectionMap = this.editor.pc.selectionMap;
         let selectFlag = false;
         objects.forEach((e) => {
-            if (e.userData.isPoint) {
-                this.editor.removePointFromGroup(e, e.userData.groupName);
-            }
             removeMap[e.uuid] = true;
             this.removeHasMap(e.uuid, frame);
             if (selectionMap[e.uuid]) {
+                if (e.userData.isPoint) {
+                    this.editor.removePointFromGroup(e, e.userData.groupName);
+                }
                 console.log('removeAnnotates', e.uuid);
                 selectFlag = true;
                 delete selectionMap[e.uuid];
