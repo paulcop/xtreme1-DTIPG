@@ -9,6 +9,7 @@ import { createMatrixFromCameraInternal, getMaxMinV2, reformProjectPoints } from
 import { get } from '../utils/tempVar';
 import Image2DRenderProxy from './Image2DRenderProxy';
 import { Event } from '../config/';
+import {forEach} from "lodash";
 
 const defaultActions: string[] = [
     'select',
@@ -359,6 +360,10 @@ export default class Image2DRenderView extends Render {
         return this.pointCloud.getAnnotate3D();
     }
 
+    get3dPointsObject() {
+        return this.pointCloud.getAnnotatePoints3D();
+    }
+
     showMask(obj: AnnotateObject) {
         return false;
     }
@@ -483,6 +488,11 @@ export default class Image2DRenderView extends Render {
         let selection3Ds = selection.filter((e) => e instanceof THREE.Object3D);
         let object3Ds = this.get3DObject();
 
+        let allPoints = this.get3dPointsObject();
+        allPoints.forEach((point) => {
+            this.renderPoint3D(point as AnnotateObject);
+        });
+
         if (this.renderBox && this.renderPoints && selection3Ds.length > 0) {
             let groupPoint = groupPoints.children[0] as THREE.Points;
             let box = selection[0] as Box;
@@ -522,8 +532,58 @@ export default class Image2DRenderView extends Render {
             });
             selection3Ds.forEach((box) => {
                 this.renderBoxData(box as Box);
+                if (box.userData.isPoint) {
+                    this.renderPoint3D(box as AnnotateObject);
+                }
             });
         }
+    }
+
+    renderPoint3D(point: AnnotateObject) {
+        //console.log('renderPoint3D');
+        let { selectionMap, selectColor, highlightColor } = this.pointCloud;
+        let { renderer } = this.proxy;
+
+        // Determine the color based on whether the point is selected
+        let color = selectionMap[point.uuid] ? selectColor : new THREE.Color(0xffffff); // White if not selected, red if selected
+        let highFlag = this.isHighlight(point);
+        color = highFlag ? highlightColor : color;
+
+        // Render previous line if it exists
+        if (point.userData.prevLine) {
+            let line = point.userData.prevLine;
+            this.renderLine(line, color, renderer);
+        }
+
+        // Render next line if it exists
+        if (point.userData.nextLine) {
+            let line = point.userData.nextLine;
+            this.renderLine(line, color, renderer);
+        }
+
+        // Render the point itself
+        this.renderPoint(point, color, renderer);
+    }
+
+    renderLine(line: THREE.Line, color: THREE.Color, renderer: THREE.WebGLRenderer) {
+        //console.log('renderLine');
+        let material = line.material as THREE.LineBasicMaterial;
+        let oldColor = material.color.clone(); // Save old color
+
+        material.color = color; // Set new color
+        renderer.render(line, this.camera); // Render the line
+
+        material.color = oldColor; // Restore old color
+    }
+
+    renderPoint(point: AnnotateObject, color: THREE.Color, renderer: THREE.WebGLRenderer) {
+        let material = point.material as THREE.MeshBasicMaterial;
+        let oldColor = material.color.clone(); // Save old color
+
+        material.color = color; // Set new color
+        renderer.render(point, this.camera); // Render the point
+
+        material.color = oldColor; // Restore old color
     }
 
     setContextTransform() {

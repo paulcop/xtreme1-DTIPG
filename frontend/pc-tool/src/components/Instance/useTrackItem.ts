@@ -17,13 +17,12 @@ export default function useTrackItem() {
     function onSelect(item: IItem) {
         let annotate3D = pc.getAnnotate3D();
         let annotate2D = pc.getAnnotate2D();
-        let annotateLines3D = pc.getAnnotateLines3D();
+        //let annotateLines3D = pc.getAnnotateLines3D();
         let annotatePoints3D = pc.getAnnotatePoints3D(); // Ajoutez cette ligne pour récupérer les points 3D
 
         let objects = [
             ...annotate3D,
             ...annotate2D,
-            ...annotateLines3D,
             ...annotatePoints3D, // Ajoutez les points 3D à la sélection
         ].filter((e) => e.userData.trackId === item.id);
 
@@ -51,10 +50,10 @@ export default function useTrackItem() {
                     let objects: AnnotateObject[] = [];
                     let annotate3D = pc.getAnnotate3D();
                     let annotate2D = pc.getAnnotate2D();
-                    let annotateLines3D = pc.getAnnotateLines3D();
+                    //let annotateLines3D = pc.getAnnotateLines3D();
                     let annotatePoints3D = pc.getAnnotatePoints3D(); // Ajoutez cette ligne pour récupérer les points 3D
 
-                    [...annotate3D, ...annotate2D, ...annotateLines3D, ...annotatePoints3D].forEach((object) => {
+                    [...annotate3D, ...annotate2D, ...annotatePoints3D].forEach((object) => {
                         let id = object.uuid;
                         if (idMap[id]) objects.push(object);
                     });
@@ -78,13 +77,12 @@ export default function useTrackItem() {
 
         let annotate3D = pc.getAnnotate3D();
         let annotate2D = pc.getAnnotate2D();
-        let annotateLines3D = pc.getAnnotateLines3D();
+        //let annotateLines3D = pc.getAnnotateLines3D();
         let annotatePoints3D = pc.getAnnotatePoints3D(); // Ajoutez cette ligne pour récupérer les points 3D
 
         let objects = [
             ...annotate3D,
             ...annotate2D,
-            ...annotateLines3D,
             ...annotatePoints3D, // Ajoutez les points 3D à la gestion de la visibilité
         ].filter((object) => idMap[object.uuid]);
 

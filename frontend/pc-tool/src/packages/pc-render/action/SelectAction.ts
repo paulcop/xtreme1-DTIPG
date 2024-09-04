@@ -54,7 +54,6 @@ export default class SelectAction extends Action {
     onClick(event: MouseEvent) {
         if (!this.enabled || !this._clickValid) return;
 
-        // console.log('onClick');
         let object = this.getObject(event);
         if (object) {
             this.selectObject(object as any);
@@ -81,6 +80,7 @@ export default class SelectAction extends Action {
         let object;
         if (this.renderView instanceof MainRenderView) {
             object = this.checkMainView(event);
+            // console.log(object);
         } else {
             object = this.checkImage2DView(event);
         }
@@ -92,13 +92,19 @@ export default class SelectAction extends Action {
         let pos = get(THREE.Vector2, 0);
         this.getProjectPos(event, pos);
         let annotate3D = this.renderView.pointCloud.getAnnotate3D();
+        let annotatePoint = this.renderView.pointCloud.getAnnotatePoints3D();
 
         this.raycaster.setFromCamera(pos, this.renderView.camera);
         const intersects = this.raycaster.intersectObjects(annotate3D);
+        const intersectsPoint = this.raycaster.intersectObjects(annotatePoint);
         // console.log(intersects);
         if (intersects.length > 0) {
             return intersects[0].object;
             // this.selectObject(intersects[0].object as any);
+        }
+        if (intersectsPoint.length > 0) {
+            return intersectsPoint[0].object;
+            // this.selectObject(intersectsPoint[0].object as any);
         }
     }
 

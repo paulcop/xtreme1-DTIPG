@@ -75,7 +75,6 @@ export default class Editor extends THREE.EventDispatcher {
     modelManager: ModelManager;
     trackManager: TrackManager;
     taskManager: TaskManager;
-    //pointGroups: Record<string, { pointsGroup: THREE.Group;}>;
 
     // ui
     registerModal: RegisterFn = () => {};
@@ -83,8 +82,6 @@ export default class Editor extends THREE.EventDispatcher {
     showMsg: MsgFn = () => {};
     showConfirm: ConfirmFn = () => Promise.resolve();
     showLoading: LoadingFn = () => {};
-
-    private points: THREE.Object3D[] = []; // Store the points directly
 
 
     constructor() {
@@ -133,7 +130,7 @@ export default class Editor extends THREE.EventDispatcher {
 
             // Vérifier si l'objet sélectionné est un point ou une boîte
             if (selectedObject) {
-                console.log('Selected Object:');
+                console.log('Selected Object: ', selectedObject);
 
                 // Si c'est une boîte ou un point, activer la translation si nécessaire
                 if (config.activeTranslate && (selectedObject instanceof Box || selectedObject.userData.isPoint)) {
@@ -166,8 +163,9 @@ export default class Editor extends THREE.EventDispatcher {
 
             let annotate3D = this.pc.getAnnotate3D();
             let annotate2D = this.pc.getAnnotate2D();
+            let annotatePoints3D = this.pc.getAnnotatePoints3D();
 
-            let objects = [...annotate3D, ...annotate2D].filter(
+            let objects = [...annotate3D, ...annotate2D, ...annotatePoints3D].filter(
                 (e) => e.userData.trackId === trackId,
             );
             if (objects.length > 0) {
@@ -277,10 +275,13 @@ export default class Editor extends THREE.EventDispatcher {
     //   Line 3D annotation   //
 
     /// Create a new group of points with a given name
-    createPointGroup(groupName: string): { pointsGroup: THREE.Group; linesGroup: THREE.Group } {
+    /*createPointGroup(groupName: string): { pointsGroup: THREE.Group; linesGroup: THREE.Group } {
         if (this.pointGroups[groupName]) {
             console.warn(`Group ${groupName} already exists!`);
             return this.pointGroups[groupName];
+        }
+        if (!this.pc.annotatePoints3D.children) {
+            this.pc.annotatePoints3D = new THREE.Group();
         }
 
         const pointsGroup = new THREE.Group();
@@ -294,28 +295,23 @@ export default class Editor extends THREE.EventDispatcher {
 
         this.pointGroups[groupName] = { pointsGroup, linesGroup };
         return this.pointGroups[groupName];
-    }
+    }*/
 
     // Add a point to a group and connect it with the previous point
-    addPointToGroup(point: THREE.Object3D, groupName: string) {
-        const group = this.pointGroups[groupName];
-        console.log(`Adding point to group ${groupName}: `, group.pointsGroup.children);
-        if (!group) {
-            console.error(`Group ${groupName} does not exist!`);
-            return;
-        }
+    addPoint(point: THREE.Object3D, groupName: string) {
 
-        // Add the point to the pointsGroup
-        group.pointsGroup.add(point);
         point.userData.groupName = groupName;
+        this.pc.setVisible(point, true);
 
-        const pointsInGroup = group.pointsGroup.children;
-        const numPoints = pointsInGroup.length;
+        this.pc.annotatePoints3D.add(point);
+        const pointsInGroup = this.pc.annotatePoints3D.children;
+        const index = pointsInGroup.indexOf(point);
 
-        console.log(`Adding point to group ${groupName}: `, pointsInGroup);
+        //console.log(`Adding point to group ${groupName}: `, pointsInGroup);
 
-        if (numPoints > 1) {
-            const previousPoint = pointsInGroup[numPoints - 2];
+        if (index > 0) {
+            console.log("numPoints > 1 :", index);
+            const previousPoint = pointsInGroup[index - 1];
             const line = this.createLineBetweenPoints(previousPoint, point);
 
             // Set up the connections
@@ -324,20 +320,16 @@ export default class Editor extends THREE.EventDispatcher {
             previousPoint.userData.nextPoint = point;
             previousPoint.userData.nextLine = line;
 
-            this.pc.scene.add(line); // Add the line to the scene
+            //this.pc.scene.add(line); // Add the line to the scene
+            //group.linesGroup.add(line); // Add the line to the linesGroup
         }
 
+        //console.log(`Added point to group ${groupName}: `, group.pointsGroup.children);
         this.pc.render();
     }
 
     // Move a point within a group and update the connected lines
     movePointInGroup(point: THREE.Object3D, newPosition: THREE.Vector3, groupName: string) {
-        const group = this.pointGroups[groupName];
-        if (!group) {
-            console.error(`Group ${groupName} does not exist!`);
-            return;
-        }
-
         point.position.copy(newPosition);
 
         // Update the previous line
@@ -363,15 +355,10 @@ export default class Editor extends THREE.EventDispatcher {
 
     // Remove a point from a group and update the lines
     removePointFromGroup(point: THREE.Object3D, groupName: string) {
-        const group = this.pointGroups[groupName];
-        if (!group) {
-            console.error(`Group ${groupName} does not exist!`);
-            return;
-        }
 
         // Remove the previous line and update the previous point's next connection
         if (point.userData.prevLine) {
-            this.pc.scene.remove(point.userData.prevLine);
+            //this.pc.scene.remove(point.userData.prevLine);
             if (point.userData.prevPoint) {
                 point.userData.prevPoint.userData.nextLine = null;
                 point.userData.prevPoint.userData.nextPoint = point.userData.nextPoint;
@@ -380,7 +367,7 @@ export default class Editor extends THREE.EventDispatcher {
 
         // Remove the next line and update the next point's previous connection
         if (point.userData.nextLine) {
-            this.pc.scene.remove(point.userData.nextLine);
+            //this.pc.scene.remove(point.userData.nextLine);
             if (point.userData.nextPoint) {
                 point.userData.nextPoint.userData.prevLine = null;
                 point.userData.nextPoint.userData.prevPoint = point.userData.prevPoint;
@@ -394,13 +381,13 @@ export default class Editor extends THREE.EventDispatcher {
                 );
                 point.userData.prevPoint.userData.nextLine = newLine;
                 point.userData.nextPoint.userData.prevLine = newLine;
-                this.pc.scene.add(newLine);
+                //this.pc.scene.add(newLine);
             }
         }
 
         // Finally, remove the point from the group
-        group.pointsGroup.remove(point);
-        this.pc.scene.remove(point); // Remove the point from the scene
+        this.pc.annotatePoints3D.remove(point);
+        //this.pc.scene.remove(point); // Remove the point from the scene
         this.pc.render();
     }
 
@@ -411,15 +398,20 @@ export default class Editor extends THREE.EventDispatcher {
             throw new Error('Les points fournis à createLineBetweenPoints ne peuvent pas être undefined');
         }
 
-        console.log(`Point1 position:`, point1.position);
-        console.log(`Point2 position:`, point2.position);
+        //console.log(`Point1 position:`, point1.position);
+        //console.log(`Point2 position:`, point2.position);
 
         const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
         const geometry = new THREE.BufferGeometry().setFromPoints([
             point1.position,
             point2.position
         ]);
-        return new THREE.Line(geometry, material);
+
+        let line = new THREE.Line(geometry, material);
+        line.userData.isLine = true;
+        line.isvisible = true;
+
+        return line;
     }
 
     //  Fin de la ligne 3D annotation   //
@@ -593,7 +585,7 @@ export default class Editor extends THREE.EventDispatcher {
         }
 
         if (flag) {
-            console.log('translation de truc')
+            //console.log('translation de truc')
             // Attach the object to the transform controls
             action.control.attach(selectedObject);
 

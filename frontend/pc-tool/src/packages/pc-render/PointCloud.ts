@@ -16,6 +16,7 @@ export default class PointCloud extends THREE.EventDispatcher {
     scene: THREE.Scene;
     annotate3D: THREE.Group;
     annotate2D: Object2D[] = [];
+    annotatePoints3D: THREE.Group;
     groupPoints: THREE.Group;
     groupTrack: THREE.Group;
     selection: AnnotateObject[];
@@ -41,6 +42,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         this.scene = new THREE.Scene();
         // this.scene.autoUpdate = false;
         this.annotate3D = new THREE.Group();
+        this.annotatePoints3D = new THREE.Group();
         this.groupPoints = new THREE.Group();
         this.groupTrack = new THREE.Group();
 
@@ -62,6 +64,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         this.scene.add(
             this.groupPoints,
             this.annotate3D,
+            this.annotatePoints3D,
             this.ground,
             this.trimBox,
             this.groupTrack,
@@ -100,7 +103,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         if (position) object.position.copy(position);
         if (rotation) object.rotation.copy(rotation);
 
-        console.log('Object transform:', object.position);
+        //console.log('Object transform:', object.position);
         this.dispatchEvent({ type: Event.OBJECT_TRANSFORM, data: { object, option } });
 
         // Check if the object is a point and notify Editor to update lines
@@ -161,7 +164,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         this.selectionMap = {};
         selection.forEach((e) => {
             this.selectionMap[e.uuid] = e;
-            console.log('Objet sélectionné:', e);
+            //console.log('Objet sélectionné:', e);
         });
 
         this.dispatchEvent({
@@ -270,26 +273,16 @@ export default class PointCloud extends THREE.EventDispatcher {
         return this.annotate2D;
     }
 
-    getAnnotateLines3D() {
-        return this.annotate3D.children.filter((e) => e instanceof THREE.Line) as THREE.Line[];
-    }
-
-    private annotations: THREE.Object3D[] = []; // Cela peut être un tableau ou une autre structure qui contient les objets annotés
-
     // Méthode pour récupérer les annotations de points 3D
     getAnnotatePoints3D(): THREE.Object3D[] {
-        console.log("Points 3D annotés :", this.annotations.filter(object => object.userData.isPoint));
-        return this.annotations.filter(object => object.userData.isPoint);
-    }
-
-    // Exemple d'ajout d'une annotation (vous pouvez avoir une méthode similaire existante)
-    addAnnotation(object: THREE.Object3D) {
-        this.annotations.push(object);
+        //console.log('Annotations de points 3D:', this.annotatePoints3D.children);
+        return this.annotatePoints3D.children as THREE.Object3D[];
     }
 
     clearData() {
         this.selectObject();
         this.annotate3D.children = [];
+        this.annotatePoints3D.children = [];
         this.annotate2D = [];
         this.dispatchEvent({ type: Event.CLEAR_DATA });
         this.render();

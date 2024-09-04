@@ -232,15 +232,11 @@ function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupNam
     point.matrixAutoUpdate = true;
     point.updateMatrixWorld();
     point.uuid = point.userData.id;
-
-    if (editor.pc.annotations) {
-        editor.pc.annotations.push(point);
-    } else {
-        console.warn("Annotations array is not defined in editor.pc.");
-    }
+    point.userData.prevPoint = null;
+    point.userData.prevLine = null;
 
     // Add the point to the specified group and ensure it's positioned correctly
-    editor.addPointToGroup(point, groupName);
+    editor.addPoint(point, groupName);
 
     return point;
 }
@@ -285,7 +281,7 @@ export const create3DLine = define({
                         }
 
                         const groupName = nanoid();  // Unique name for the point group
-                        editor.createPointGroup(groupName);  // Ensure the group is created
+                        // editor.createPointGroup(groupName);  // Ensure the group is created
 
                         const points = data.map(pointData => {
                             const worldPosition = view.canvasToWorld(pointData);

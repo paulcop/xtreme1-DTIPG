@@ -7,6 +7,7 @@ import PointsMaterial from '../material/PointsMaterial';
 import TWEEN, { Tween } from '@tweenjs/tween.js';
 // import Action from '../action/Action';
 import OrbitControlsAction from '../action/OrbitControlsAction';
+import {AnnotateObject} from "../objects";
 
 // const defaultActions = ['transform-control', 'select', 'create-obj'];
 const defaultActions = [
@@ -191,13 +192,15 @@ export default class MainRenderView extends Render {
 
     renderFrame() {
         // let { scene, groupPoints } = this.pointCloud;
-        let { groupPoints, scene, selection, annotate3D, selectionMap } = this.pointCloud;
+        let { groupPoints, scene, selection, annotate3D, annotatePoints3D, selectionMap } = this.pointCloud;
 
         this.updateSize();
 
         this.renderer.clear(true, true, true);
 
         let object3d = selection.find((item) => item instanceof Box);
+
+        let point = selection.find((item) => item.userData.isPoint);
 
         if (object3d && object3d.visible) {
             // render points
@@ -223,14 +226,19 @@ export default class MainRenderView extends Render {
             });
 
             annotate3D.visible = false;
+            annotatePoints3D.visible = false;
             this.renderer.render(scene, this.camera);
 
             material.setUniforms({ hasFilterBox: oldHasFilterBox, boxInfo: { type: oldType } });
 
             annotate3D.visible = true;
+            annotatePoints3D.visible = true;
             annotate3D.children.forEach((box) => {
                 if (box === object3d) return;
                 this.renderBox(box as Box);
+            });
+            annotatePoints3D.children.forEach((datapoint, index) => {
+                this.renderPointAndLines(datapoint as AnnotateObject, scene);
             });
 
             // render select
@@ -238,12 +246,48 @@ export default class MainRenderView extends Render {
             this.renderBox(box, this.selectColor);
         } else {
             annotate3D.visible = false;
+            annotatePoints3D.visible = false;
             this.renderer.render(scene, this.camera);
             annotate3D.visible = true;
+            annotatePoints3D.visible = true;
             annotate3D.children.forEach((box) => {
                 this.renderBox(box as Box, selectionMap[box.uuid] ? this.selectColor : undefined);
             });
+            annotatePoints3D.children.forEach((datapoint, index) => {
+                this.renderPointAndLines(datapoint as AnnotateObject, scene);
+            })
+
         }
+        this.renderer.clearDepth();
+    }
+
+    renderPointAndLines(point: AnnotateObject, scene: THREE.Scene) {
+
+        if (point.userData.nextLine) {
+            this.renderLine(point.userData.nextLine as THREE.Line, this.selectColor);
+        }
+        if (point.userData.prevLine) {
+            this.renderLine(point.userData.prevLine as THREE.Line, this.selectColor);
+        }
+
+        this.renderPoint(point, this.selectColor);
+        this.renderer.render(scene, this.camera);
+    }
+
+    renderPoint(point: AnnotateObject, color: THREE.Color) {
+        let material = point.material as THREE.MeshBasicMaterial;
+        let oldColor = material.color.clone();
+        material.color = color;
+        this.renderer.render(point, this.camera);
+        material.color = oldColor;
+    }
+
+    renderLine(line: THREE.Line, color: THREE.Color) {
+        let material = line.material as THREE.LineBasicMaterial;
+        let oldColor = material.color.clone();
+        material.color = color;
+        this.renderer.render(line, this.camera);
+        material.color = oldColor;
     }
 
     renderBox(box: Box, color?: THREE.Color) {
