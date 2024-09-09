@@ -17,6 +17,7 @@ export interface IItemConfig {
     getIcon: (editor: Editor) => string;
     isDisplay: (editor: Editor) => boolean;
     isActive: (editor: Editor) => boolean;
+    addNewLineGroup?: (editor: Editor) => void;
 }
 export const allItems: IItemConfig[] = [
     {
@@ -94,6 +95,15 @@ export const allItems: IItemConfig[] = [
         getIcon: function (editor: Editor) {
             return 'iconfont icon-polyline';
         },
+        getStyle: function (editor: Editor) {
+            return {
+                'margin-bottom': 0,
+                'border-bottom-right-radius': 0,
+                'border-bottom-left-radius': 0,
+                'padding-bottom': 0,
+            };
+        },
+        extra: () => SetLine,
         isDisplay: function (editor: Editor) {
             let state = editor.state;
             return state.modeConfig.ui[UIType.create3dLine] && !state.config.showSingleImgView;
@@ -102,17 +112,24 @@ export const allItems: IItemConfig[] = [
             let state = editor.state;
             return state.config.currentTool === 'create3DLine';
         },
-        execute: function (editor: Editor) {
-            console.log('Executing create3DLine'); // Vérifiez si l'action est déclenchée
+        /*execute: function (editor: Editor) {
+            console.log('Executing create3DLine');
             editor.executeAction('create3DLine');
-            /*
-            editor.state.config.currentTool = 'create3DLine'; // Définir l'outil actif comme create3DLine
-
-            // Si l'action doit déclencher une fonction spécifique dans l'éditeur, faites-le ici
-            editor.enterCreate3DLineMode(); // Appelez la méthode pour entrer en mode création de ligne 3D
-            */
-        }
+        },
+        // Option supplémentaire pour ajouter un nouveau groupe de lignes
+        addNewLineGroup: function (editor: Editor) {
+            editor.groupPointsCount = editor.groupPointsCount + 1; // Incrémentation du compteur de groupes de points
+            console.log('New line group added: ', editor.groupPointsCount);
+            // Logique pour réinitialiser ou commencer un nouveau groupe de lignes ici
+        },
+        // Nouvelle méthode pour ajouter un point de sélection
+        addSelectPoint: function (editor: Editor) {
+            //editor.addSelectPoint(); // Logique pour ajouter un point de sélection
+            editor.executeAction('addPointSelect');
+            console.log('Select point added');
+        },*/
     },
+
     {
         action: 'translate',
         title: ($$) => $$('title_translate'),

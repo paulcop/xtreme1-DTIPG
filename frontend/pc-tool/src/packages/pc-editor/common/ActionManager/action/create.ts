@@ -208,21 +208,10 @@ export const createObjectWith3 = define({
     },
 });
 
-function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupName: string): THREE.Mesh {
+function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupName: string, startPoint: THREE.Mesh): THREE.Mesh {
     const pointGeometry = new THREE.SphereGeometry(0.1, 16, 16);
     const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const point = new THREE.Mesh(pointGeometry, pointMaterial);
-
-    /*if (!userData) {
-        userData = {};
-    }
-
-    if (!userData.id) {
-        userData.id = nanoid(); // Ensure each point has a unique id
-    }
-    console.log('Creating point at:', position);
-
-    point.userData = userData;*/
 
     // Set the point's position based on the provided 3D world position
     point.position.copy(position);
@@ -235,8 +224,12 @@ function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupNam
     point.userData.prevPoint = null;
     point.userData.prevLine = null;
 
-    // Add the point to the specified group and ensure it's positioned correctly
-    editor.addPoint(point, groupName);
+    if (startPoint) {
+        editor.addPointToindex(point, startPoint, groupName);
+    }
+    else {
+        editor.addPoint(point, groupName);
+    }
 
     return point;
 }
@@ -280,12 +273,13 @@ export const create3DLine = define({
                             return;
                         }
 
-                        const groupName = nanoid();  // Unique name for the point group
+                        const groupName = editor.groupPointscount.toString();  // Unique name for the point group
                         // editor.createPointGroup(groupName);  // Ensure the group is created
+                        console.log('groupName', groupName);
 
                         const points = data.map(pointData => {
                             const worldPosition = view.canvasToWorld(pointData);
-                            return createPointAnnotation(editor, worldPosition, groupName);
+                            return createPointAnnotation(editor, worldPosition, groupName, null);
                         });
 
                         editor.cmdManager.withGroup(() => {
@@ -314,6 +308,88 @@ export const create3DLine = define({
             });
         }
     },
+});
+
+export const addPointSelect = define({
+   valid(editor: Editor) {
+         let state = editor.state;
+         return !state.config.showSingleImgView && state.modeConfig.actions['addPointSelect'];
+   },
+   end(editor: Editor) {
+         let action = this.action as CreateAction;
+         if (action) action.end();
+         editor.state.status = StatusType.Default;
+   },
+    execute(editor: Editor) {
+        if (!editor.pc) {
+            console.error("editor.pc is not initialized");
+            return;
+        }
+
+        //excute create3DLine if a point are selected
+        if (editor.pc.selection.length > 0 && editor.pc.selection[0].userData.isPoint) {
+            let selectedPoint = editor.pc.selection[0];
+            console.log('Point selected');
+            let view = editor.pc.renderViews.find((e) => e instanceof MainRenderView) as MainRenderView;
+            if (view) {
+                let action = view.getAction('create-obj') as CreateAction;
+                this.action = action;
+
+                editor.state.status = StatusType.Create;
+
+                return new Promise<any>((resolve) => {
+                    action.start(
+                        {
+                            type: 'points-1', // Use points-1 to capture a single point
+                            startClick: true,
+                            startMouseDown: false,
+                        },
+                        async (data: THREE.Vector2[]) => {
+                            if (data.length != 1) {
+                                console.error('Not enough points to create a line.');
+                                resolve(null);
+                                return;
+                            }
+
+                            const groupName = editor.groupPointscount.toString();
+
+                            const points = data.map(pointData => {
+                                const worldPosition = view.canvasToWorld(pointData);
+                                return createPointAnnotation(editor, worldPosition, groupName, selectedPoint);
+                            });
+
+                            editor.cmdManager.withGroup(() => {
+                                points.forEach(point => {
+                                    editor.cmdManager.execute('add-object', point);
+                                });
+
+                                editor.state.config.showClassView = true;
+
+                                if (editor.state.isSeriesFrame) {
+                                    let trackObject: Partial<IObject> = {
+                                        trackId: points[0].userData.trackId,
+                                        trackName: points[0].userData.trackName,
+                                        classType: points[0].userData.classType,
+                                        classId: points[0].userData.classId,
+                                    };
+                                    editor.cmdManager.execute('add-track', trackObject);
+                                }
+
+                                editor.cmdManager.execute('select-object', points);
+                            });
+
+                            resolve(points);
+                        }
+                    );
+                });
+            }
+        }
+        else {
+            console.log('No point selected');
+            return;
+        }
+    }
+
 });
 
 export const createAnnotation = define({

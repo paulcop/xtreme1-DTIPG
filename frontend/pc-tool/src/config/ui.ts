@@ -14,6 +14,7 @@ export const executeUI = [
     BsUIType.create2dRect,
     BsUIType.create3dBox,
     BsUIType.create3dLine,
+    BsUIType.addPointSelect,
     BsUIType.sideViewTool,
     BsUIType.info,
     BsUIType.filter2D,

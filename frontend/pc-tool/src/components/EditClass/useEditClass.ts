@@ -291,6 +291,7 @@ export default function useEditClass() {
         // let size3D = undefined;
         const { isSeriesFrame, frameIndex, frames } = editor.state;
         let classConfig = editor.getClassType(state.classType);
+        console.log('classConfig', classConfig);
         let userData = {
             classType: classConfig?.name,
             classId: classConfig?.id,
@@ -298,19 +299,45 @@ export default function useEditClass() {
             resultStatus: Const.True_Value,
         } as IUserData;
 
-        editor.cmdManager.withGroup(() => {
-            editor.trackManager.setTrackData(state.trackId, {
-                userData: { classType: userData.classType, classId: userData.classId },
-            });
+        if (trackObject.userData.isPoint) {
+            let groupName = trackObject.userData.groupName;
 
-            editor.trackManager.setDataByTrackId(
-                state.trackId,
-                {
-                    userData: userData,
-                },
-                isSeriesFrame ? frames : [editor.getCurrentFrame()],
-            );
-        });
+            // Parcourir tous les points ayant le même groupName et leur appliquer le nouveau classType
+            editor.cmdManager.withGroup(() => {
+                editor.pc.getAnnotatePoints3D().forEach((point: AnnotateObject) => {
+                    // Vérifier que c'est un point et qu'il appartient au même groupName
+                    if (point.userData.isPoint === true && point.userData.groupName === groupName) {
+                        // Mettre à jour le classType pour tous les points du même groupName
+                        editor.trackManager.setTrackData(point.userData.trackId, {
+                            userData: { classType: userData.classType, classId: userData.classId },
+                        });
+
+                        editor.trackManager.setDataByTrackId(
+                            point.userData.trackId,
+                            {
+                                userData: userData,
+                            },
+                            isSeriesFrame ? frames : [editor.getCurrentFrame()],
+                        );
+                    }
+                });
+            });
+        }
+        else {
+            editor.cmdManager.withGroup(() => {
+                editor.trackManager.setTrackData(state.trackId, {
+                    userData: {classType: userData.classType, classId: userData.classId},
+                });
+
+                editor.trackManager.setDataByTrackId(
+                    state.trackId,
+                    {
+                        userData: userData,
+                    },
+                    isSeriesFrame ? frames : [editor.getCurrentFrame()],
+                );
+            });
+        }
 
         state.resultStatus = Const.True_Value;
         updateAttrInfo(trackObject.userData, state.classType);

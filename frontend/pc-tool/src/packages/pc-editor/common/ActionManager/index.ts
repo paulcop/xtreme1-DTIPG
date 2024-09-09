@@ -16,6 +16,7 @@ interface IActionArgs {
     createAnnotation: { object: Box };
     projectObject2D: { updateFlag?: boolean; createFlag?: boolean; selectFlag?: boolean };
     create3DLine: {}; // TODO
+    addPointSelect: {}; // TODO
     [key: string]: any;
 }
 
@@ -112,6 +113,7 @@ export default class ActionManager {
             'createAnnotation',
             'createObjectWith3',
             'create3DLine',
+            'addPointSelect',
         ];
 
         let config = this.editor.state.config;
@@ -134,6 +136,9 @@ export default class ActionManager {
                     config.active3DBox = false;
                 case 'create3DLine':
                     config.active3DLine = false;
+                    break;
+                case 'addPointSelect':
+                    config.activePoint = false;
                     break;
             }
         }

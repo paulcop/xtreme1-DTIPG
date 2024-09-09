@@ -117,5 +117,12 @@ export default class LabelAction extends Action {
             // let obj = { name:  : subId, x: pos.x, y: pos.y, scale };
             // list.push(obj);
         });
+
+        let points = pointCloud.getAnnotatePoints3D();
+
+        points.forEach((e) => {
+            if (!e.visible) return;
+            // # TODO
+        });
     }
 }

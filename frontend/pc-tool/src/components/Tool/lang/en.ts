@@ -35,6 +35,8 @@ const en = {
     title_radius: 'Radius',
 
     title_3d_line: "3D Line",
+    add_new_group: 'Add New Group',
+    add_select_point: 'Add Selected Points',
 
     model_title: 'AI Annotation Setting',
     model_name: 'Model',

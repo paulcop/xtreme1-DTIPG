@@ -274,7 +274,38 @@ export default class SideRenderView extends Render {
         }
     }
 
-    // render
+    // Nouvelle fonction pour vérifier si l'objet sélectionné est un point (userData.isPoint === true)
+    isSelectedPoint() {
+        return this.pointCloud.selection.some(
+            (object) => object instanceof THREE.Object3D && object.userData.isPoint === true
+        );
+    }
+
+    // Ajoutez une marge autour de la bounding box
+    getBoundingBoxForSelectedPoints(paddingPercent: number = 0.1) {
+        let boundingBox = new THREE.Box3(); // Créer une boîte vide pour encapsuler les points
+        let foundPoints = false;
+
+        this.pointCloud.selection.forEach((object) => {
+            if (object instanceof THREE.Object3D && object.userData.isPoint === true) {
+                const box = new THREE.Box3().setFromObject(object);
+                boundingBox.expandByObject(object);
+                foundPoints = true;
+            }
+        });
+
+        if (!foundPoints) {
+            return null; // Si aucun point n'est trouvé, renvoie null
+        }
+
+        // Ajouter un padding autour de la bounding box (pour agrandir la zone)
+        const size = boundingBox.getSize(new THREE.Vector3());
+        const padding = size.multiplyScalar(paddingPercent); // Ajouter un pourcentage de la taille actuelle
+        boundingBox.expandByVector(padding); // Agrandir la bounding box avec le padding
+
+        return boundingBox;
+    }
+
     renderFrame() {
         let { groupPoints, scene, selection } = this.pointCloud;
 
@@ -282,6 +313,36 @@ export default class SideRenderView extends Render {
         this.renderer.clear(true, true, true);
 
         if (groupPoints.children.length === 0) return;
+
+        // Si l'objet sélectionné est un point, recentrer la caméra
+        if (this.isSelectedPoint()) {
+            // Ajouter un padding de 20% autour du point sélectionné
+            const boundingBox = this.getBoundingBoxForSelectedPoints(5); // 0.2 = 20% de padding
+
+            if (boundingBox) {
+                const center = boundingBox.getCenter(new THREE.Vector3());
+                const size = boundingBox.getSize(new THREE.Vector3());
+
+                const aspect = this.width / this.height;
+                let cameraWidth = size.x;
+                let cameraHeight = size.y;
+
+                // Ajuster selon l'aspect ratio
+                if (cameraWidth / cameraHeight > aspect) {
+                    cameraHeight = cameraWidth / aspect;
+                } else {
+                    cameraWidth = cameraHeight * aspect;
+                }
+
+                // Appliquer les nouveaux paramètres à la caméra
+                this.camera.left = (-cameraWidth / 2) * this.zoom;
+                this.camera.right = (cameraWidth / 2) * this.zoom;
+                this.camera.top = (cameraHeight / 2) * this.zoom;
+                this.camera.bottom = (-cameraHeight / 2) * this.zoom;
+                this.camera.position.set(center.x, center.y, this.camera.position.z);
+                this.camera.updateProjectionMatrix();
+            }
+        }
 
         let hasObject3D = selection.find((e) => e instanceof THREE.Object3D);
 

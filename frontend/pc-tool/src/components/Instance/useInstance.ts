@@ -74,7 +74,7 @@ export default function useInstance() {
         editor.addEventListener(EditorEvent.ANNOTATE_ADD, onUpdateList);
         editor.addEventListener(EditorEvent.ANNOTATE_CHANGE, onAnnotateChange);
         editor.addEventListener(EditorEvent.ANNOTATE_LOAD, onUpdateList);
-        if (pc.getAnnotate3D().length > 0 || pc.getAnnotate2D().length > 0) {
+        if (pc.getAnnotate3D().length > 0 || pc.getAnnotate2D().length > 0 || pc.getAnnotatePoints3D().length > 0) {
             update();
         }
     });
@@ -535,8 +535,8 @@ export default function useInstance() {
 
     function onItemClick(item: IItem) {
         if (!item.visible) return;
-
-        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : (item.annotateType === 'rect' ? pc.getAnnotate2D() : pc.getAnnotatePoints3D());        let find = _.find(objects, (box: THREE.Object3D) => {
+        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : (item.annotateType === 'point' ? pc.getAnnotatePoints3D() : pc.getAnnotate2D());
+        let find = _.find(objects, (box: THREE.Object3D) => {
             return box.uuid === item.id;
         }) as THREE.Object3D;
 

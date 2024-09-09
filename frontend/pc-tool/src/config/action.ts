@@ -45,6 +45,7 @@ export const executeActions: IBsActionName[] = [
     'create2DBox',
     'create2DRect',
     'create3DLine',
+    'addPointSelect',
     'createObjectWith3',
     'copyBackWard',
     'copyForward',

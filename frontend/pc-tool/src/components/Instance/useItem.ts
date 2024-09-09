@@ -21,7 +21,7 @@ export default function useItem() {
 
     function onEdit(item: IItem) {
         let config = editor.state.config;
-        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : pc.getAnnotate2D();
+        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : (item.annotateType === 'point' ? pc.getAnnotatePoints3D() : pc.getAnnotate2D());
         let find = _.find(objects, (box: AnnotateObject) => {
             return box.uuid === item.id;
         }) as AnnotateObject;
@@ -33,7 +33,7 @@ export default function useItem() {
     }
 
     function onDelete(item: IItem) {
-        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : pc.getAnnotate2D();
+        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : (item.annotateType === 'point' ? pc.getAnnotatePoints3D() : pc.getAnnotate2D());
         let find = _.find(objects, (box: AnnotateObject) => {
             return box.uuid === item.id;
         }) as AnnotateObject;
@@ -44,7 +44,7 @@ export default function useItem() {
     }
 
     function onToggleVisible(item: IItem) {
-        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : pc.getAnnotate2D();
+        let objects = item.annotateType === '3d' ? pc.getAnnotate3D() : (item.annotateType === 'point' ? pc.getAnnotatePoints3D() : pc.getAnnotate2D());
 
         let find = _.find(objects, (box: AnnotateObject) => {
             return box.uuid === item.id;

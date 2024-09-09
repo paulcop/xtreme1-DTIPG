@@ -12,6 +12,7 @@ let createActions: IActionName[] = [
     'createObjectWith3',
     'pickObject',
     'create3DLine',
+    'addPointSelect',
 ];
 
 export interface IConfig {
@@ -49,7 +50,12 @@ export default function useTool() {
                 break;
             case 'create3DLine': // Gestion de l'action create3DLine
                 stopOtherCreateAction('create3DLine');
+                console.log('create3DLine uuuuuuuuuui');
                 editor.actionManager.execute('create3DLine'); // Appelle l'action pour créer une ligne 3D
+                break;
+            case 'addPointSelect': // Gestion de l'action addPointSelect
+                stopOtherCreateAction('addPointSelect');
+                editor.actionManager.execute('addPointSelect'); // Appelle l'action pour ajouter un point
                 break;
             case 'translate':
                 editor.actionManager.execute('toggleTranslate');

@@ -61,6 +61,7 @@ export default class Editor extends THREE.EventDispatcher {
     classMap: Map<string, IClassType> = new Map();
     needUpdateFilter: boolean = true;
     eventSource: string = '';
+    groupPointscount: number = 0;
 
     cmdManager: CmdManager;
     hotkeyManager: HotkeyManager;
@@ -106,6 +107,7 @@ export default class Editor extends THREE.EventDispatcher {
         this.trackManager = new TrackManager(this);
         this.taskManager = new TaskManager(this);
         this.pointGroups = {};
+        this.groupPointscount = 0;
 
         handleHack(this);
 
@@ -312,19 +314,62 @@ export default class Editor extends THREE.EventDispatcher {
         if (index > 0) {
             console.log("numPoints > 1 :", index);
             const previousPoint = pointsInGroup[index - 1];
-            const line = this.createLineBetweenPoints(previousPoint, point);
+            if (previousPoint.userData.groupName == groupName) {
+                const line = this.createLineBetweenPoints(previousPoint, point);
 
-            // Set up the connections
-            point.userData.prevPoint = previousPoint;
-            point.userData.prevLine = line;
-            previousPoint.userData.nextPoint = point;
-            previousPoint.userData.nextLine = line;
+                // Set up the connections
+                point.userData.prevPoint = previousPoint;
+                point.userData.prevLine = line;
+                previousPoint.userData.nextPoint = point;
+                previousPoint.userData.nextLine = line;
+            }
 
             //this.pc.scene.add(line); // Add the line to the scene
             //group.linesGroup.add(line); // Add the line to the linesGroup
         }
 
         //console.log(`Added point to group ${groupName}: `, group.pointsGroup.children);
+        this.pc.render();
+    }
+
+    addPointToindex(point: THREE.Object3D, startPoint: THREE.Object3D, groupName: string) {
+        point.userData.groupName = groupName;
+        this.pc.setVisible(point, true);
+
+        let index = this.pc.annotatePoints3D.children.indexOf(startPoint)
+
+        this.pc.annotatePoints3D.add(point)
+
+        // Vérifier que l'index est valide avant de déplacer
+        if (index >= 0 && index < this.pc.annotatePoints3D.children.length) {
+            // Retirer l'objet de sa position actuelle
+            const removed = this.pc.annotatePoints3D.children.pop(); // Supprime l'objet ajouté à la fin
+            if (removed) {
+                // Insérer l'objet à la nouvelle position
+                this.pc.annotatePoints3D.children.splice(index, 0, removed);
+            }
+        }
+        /*
+        this.pc.annotatePoints3D.children.splice(index + 1, 0, point);
+        point.parent = this.pc.annotatePoints3D;
+        */
+
+        const line = this.createLineBetweenPoints(startPoint, point);
+
+        if (startPoint.userData.nextPoint) {
+            point.userData.nextPoint = startPoint.userData.nextPoint;
+            point.userData.nextLine = startPoint.userData.nextLine;
+            //let nextPoint = this.pc.annotatePoints3D.children[index + 1];
+            startPoint.userData.nextPoint.userData.prevPoint = point;
+            startPoint.userData.nextLine.userData.prevLine = line;
+        }
+
+        // Set up the connections
+        point.userData.prevPoint = startPoint;
+        point.userData.prevLine = line;
+        startPoint.userData.nextPoint = point;
+        startPoint.userData.nextLine = line;
+
         this.pc.render();
     }
 
