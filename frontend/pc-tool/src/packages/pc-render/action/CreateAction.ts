@@ -18,6 +18,8 @@ const TypePoints = {
     box: 2,
     'line-2': 2,
     'point-line': 4,
+    'one-point': 1,
+    'one-point-at': 1,
 };
 
 type DrawType = keyof typeof TypePoints;
@@ -70,6 +72,7 @@ export default class CreateAction extends Action {
 
         this.drawBox = _.throttle(this.drawBox.bind(this), 30);
         this.drawPoint3 = _.throttle(this.drawPoint3.bind(this), 30);
+        this.drawPointLine = _.throttle(this.drawPointLine.bind(this), 30);
         // this.toggle(false);
     }
 
@@ -196,19 +199,138 @@ export default class CreateAction extends Action {
         context.stroke();
     }
 
-    drawPointLine(pos: Point) {
+    drawPointAt(pos: Point) {
         let context = this.context;
 
         this.clear();
+        let bool = false;
 
         if (this.trackLine) this.drawTrackLine(pos);
 
         context.beginPath();
         this.setStyle();
 
+        let pointcloud = this.renderView.pointCloud;
+        //console.log('pointcloud:', pointcloud.getAnnotatePoints3D()[pointcloud.getAnnotatePoints3D().length - 1]);
+        if (pointcloud.selection.length > 0 && pointcloud.selection[0].userData.isPoint && pointcloud.getAnnotatePoints3D() && pointcloud.getAnnotatePoints3D().length > 0) {
+            let last = pointcloud.selection[0];
+            console.log(last.userData.groupName, pointcloud.groupPointscount);
+            if (last.userData.groupName == pointcloud.groupPointscount) {
+                const vector = last.position.clone();
+
+                // 2. Projeter cette position avec la caméra (transforme les coordonnées 3D en coordonnées 2D dans l'espace de la caméra)
+                vector.project(this.renderView.camera);
+
+                // 3. Convertir les coordonnées normalisées (entre -1 et 1) en coordonnées écran (pixels)
+                const widthHalf = this.renderView.renderer.domElement.width / 2;
+                const heightHalf = this.renderView.renderer.domElement.height / 2;
+
+                const x = (vector.x * widthHalf) + widthHalf;  // Convertir en pixels (coordonnées X)
+                const y = -(vector.y * heightHalf) + heightHalf;
+                context.moveTo(x, y);
+
+                //console.log('last:', x, y);
+                context.lineTo(pos.x, pos.y);
+                if (last.userData.nextPoint) {
+                    let next = last.userData.nextPoint;
+                    const vector = next.position.clone();
+
+                    // 2. Projeter cette position avec la caméra (transforme les coordonnées 3D en coordonnées 2D dans l'espace de la caméra)
+                    vector.project(this.renderView.camera);
+
+                    // 3. Convertir les coordonnées normalisées (entre -1 et 1) en coordonnées écran (pixels)
+                    const widthHalf = this.renderView.renderer.domElement.width / 2;
+                    const heightHalf = this.renderView.renderer.domElement.height / 2;
+
+                    const x = (vector.x * widthHalf) + widthHalf;  // Convertir en pixels (coordonnées X)
+                    const y = -(vector.y * heightHalf) + heightHalf;
+                    //context.moveTo(x, y);
+                    context.lineTo(x, y);
+                }
+            }
+        }
+
+        context.stroke();
+    }
+
+    drawOnePoint(pos: Point) {
+        let context = this.context;
+
+        this.clear();
+        let bool = false;
+
+        if (this.trackLine) this.drawTrackLine(pos);
+
+        context.beginPath();
+        this.setStyle();
+
+        let pointcloud = this.renderView.pointCloud;
+        //console.log('pointcloud:', pointcloud.getAnnotatePoints3D()[pointcloud.getAnnotatePoints3D().length - 1]);
+        if (pointcloud.getAnnotatePoints3D() && pointcloud.getAnnotatePoints3D().length > 0) {
+            let last = pointcloud.getAnnotatePoints3D()[pointcloud.getAnnotatePoints3D().length - 1];
+            console.log(last.userData.groupName, pointcloud.groupPointscount);
+            if (last.userData.groupName == pointcloud.groupPointscount) {
+                const vector = last.position.clone();
+
+                // 2. Projeter cette position avec la caméra (transforme les coordonnées 3D en coordonnées 2D dans l'espace de la caméra)
+                vector.project(this.renderView.camera);
+
+                // 3. Convertir les coordonnées normalisées (entre -1 et 1) en coordonnées écran (pixels)
+                const widthHalf = this.renderView.renderer.domElement.width / 2;
+                const heightHalf = this.renderView.renderer.domElement.height / 2;
+
+                const x = (vector.x * widthHalf) + widthHalf;  // Convertir en pixels (coordonnées X)
+                const y = -(vector.y * heightHalf) + heightHalf;
+                context.moveTo(x, y);
+
+                //console.log('last:', x, y);
+                context.lineTo(pos.x, pos.y);
+            }
+        }
+
+        context.stroke();
+    }
+
+    drawPointLine(pos: Point) {
+        let context = this.context;
+
+        this.clear();
+        let bool = false;
+
+        if (this.trackLine) this.drawTrackLine(pos);
+
+        context.beginPath();
+        this.setStyle();
+
+        let pointcloud = this.renderView.pointCloud;
+        //console.log('pointcloud:', pointcloud.getAnnotatePoints3D()[pointcloud.getAnnotatePoints3D().length - 1]);
+        if (pointcloud.getAnnotatePoints3D() && pointcloud.getAnnotatePoints3D().length > 0) {
+            let last = pointcloud.getAnnotatePoints3D()[pointcloud.getAnnotatePoints3D().length - 1];
+            console.log(last.userData.groupName, pointcloud.groupPointscount);
+            if (last.userData.groupName == pointcloud.groupPointscount) {
+                bool = true;
+                const vector = last.position.clone();
+
+                // 2. Projeter cette position avec la caméra (transforme les coordonnées 3D en coordonnées 2D dans l'espace de la caméra)
+                vector.project(this.renderView.camera);
+
+                // 3. Convertir les coordonnées normalisées (entre -1 et 1) en coordonnées écran (pixels)
+                const widthHalf = this.renderView.renderer.domElement.width / 2;
+                const heightHalf = this.renderView.renderer.domElement.height / 2;
+
+                const x = (vector.x * widthHalf) + widthHalf;  // Convertir en pixels (coordonnées X)
+                const y = -(vector.y * heightHalf) + heightHalf;
+                context.moveTo(x, y);
+                //console.log('last:', x, y);
+                if (this.points.length == 0) {
+                    context.lineTo(pos.x, pos.y);
+                }
+            }
+        }
+
         // Dessiner les lignes entre les points existants
         this.points.forEach((p, index) => {
-            if (index === 0) context.moveTo(p.x, p.y);
+            if (index === 0 && !bool) context.moveTo(p.x, p.y);
             else context.lineTo(p.x, p.y);
         });
 
@@ -220,6 +342,8 @@ export default class CreateAction extends Action {
 
         context.stroke();
     }
+
+
 
 
     drawBox(pos: Point) {
@@ -277,8 +401,15 @@ export default class CreateAction extends Action {
     onMouseMove(event: MouseEvent) {
         event.stopPropagation();
         let pos = { x: event.offsetX, y: event.offsetY };
+        //console.log('Mouse Move:', event.clientX, event.clientY, pos);
         switch (this.drawType) {
             case 'points-1':
+            case 'one-point-at':
+                this.drawPointAt(pos);
+                break;
+            case 'one-point':
+                this.drawOnePoint(pos);
+                break;
             case 'points-3':
                 // console.time('test-3');
 
@@ -344,5 +475,12 @@ export default class CreateAction extends Action {
             this.end();
             this.handleCallback();
         }
+    }
+
+    stop() {
+        // Appel explicite pour arrêter l'action
+        this.end();
+        this.handleCallback();
+        console.log('Action terminée.');
     }
 }

@@ -9,6 +9,8 @@ let isMac = osName.indexOf('mac') >= 0;
 
 const hotkeyConfig: IHotkeyConfig[] = [
     { key: 'f', action: 'createObjectWith3' },
+    { key: 'p', action: 'create3DLine' },
+    { key: 'o', action: 'addPointSelect' },
     // mac or window
     { key: isMac ? 'backspace' : 'del', action: 'deleteObject' },
     { key: isMac ? '⌘+z' : 'ctrl+z', action: 'undo' },

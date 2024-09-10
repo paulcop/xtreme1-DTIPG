@@ -33,6 +33,7 @@ export default class PointCloud extends THREE.EventDispatcher {
     selectColor: THREE.Color = new THREE.Color(1, 0, 0);
     highlightColor: THREE.Color = new THREE.Color(1, 0, 0);
     private renderTimer: number = 0;
+    groupPointscount: number = 0;
 
     constructor() {
         super();
@@ -77,6 +78,7 @@ export default class PointCloud extends THREE.EventDispatcher {
         this.selection = [];
         this.selectionMap = {};
         this.renderViews = [];
+        this.groupPointscount = 0;
 
         // test
         // this.initStats();

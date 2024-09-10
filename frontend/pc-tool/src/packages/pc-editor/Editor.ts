@@ -61,7 +61,7 @@ export default class Editor extends THREE.EventDispatcher {
     classMap: Map<string, IClassType> = new Map();
     needUpdateFilter: boolean = true;
     eventSource: string = '';
-    groupPointscount: number = 0;
+    //groupPointscount: number = 0;
 
     cmdManager: CmdManager;
     hotkeyManager: HotkeyManager;
@@ -107,7 +107,7 @@ export default class Editor extends THREE.EventDispatcher {
         this.trackManager = new TrackManager(this);
         this.taskManager = new TaskManager(this);
         this.pointGroups = {};
-        this.groupPointscount = 0;
+        //this.groupPointscount = 0;
 
         handleHack(this);
 

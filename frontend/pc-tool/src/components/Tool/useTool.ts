@@ -50,7 +50,6 @@ export default function useTool() {
                 break;
             case 'create3DLine': // Gestion de l'action create3DLine
                 stopOtherCreateAction('create3DLine');
-                console.log('create3DLine uuuuuuuuuui');
                 editor.actionManager.execute('create3DLine'); // Appelle l'action pour créer une ligne 3D
                 break;
             case 'addPointSelect': // Gestion de l'action addPointSelect

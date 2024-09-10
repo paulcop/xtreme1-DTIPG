@@ -262,18 +262,18 @@ export const create3DLine = define({
             return new Promise<any>((resolve) => {
                 action.start(
                     {
-                        type: 'point-line', // Use point-line to capture multiple points
+                        type: 'one-point', // Use point-line to capture multiple points
                         startClick: true,
                         startMouseDown: false,
                     },
                     async (data: THREE.Vector2[]) => {
-                        if (data.length < 2) {
+                        /*if (data.length < 2) {
                             console.error('Not enough points to create a line.');
                             resolve(null);
                             return;
-                        }
+                        }*/
 
-                        const groupName = editor.groupPointscount.toString();  // Unique name for the point group
+                        const groupName = editor.pc.groupPointscount.toString();  // Unique name for the point group
                         // editor.createPointGroup(groupName);  // Ensure the group is created
                         console.log('groupName', groupName);
 
@@ -340,7 +340,7 @@ export const addPointSelect = define({
                 return new Promise<any>((resolve) => {
                     action.start(
                         {
-                            type: 'points-1', // Use points-1 to capture a single point
+                            type: 'one-point-at',
                             startClick: true,
                             startMouseDown: false,
                         },
@@ -351,7 +351,7 @@ export const addPointSelect = define({
                                 return;
                             }
 
-                            const groupName = editor.groupPointscount.toString();
+                            const groupName = editor.pc.groupPointscount.toString();
 
                             const points = data.map(pointData => {
                                 const worldPosition = view.canvasToWorld(pointData);

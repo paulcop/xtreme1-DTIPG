@@ -64,7 +64,7 @@ const editor = useInjectEditor();
 let $$ = editor.bindLocale(locale);
 
 // Utilisation de ref pour rendre groupPointscount réactif
-const groupPointscount = ref(editor.groupPointscount || 0); // Initialiser avec la valeur actuelle ou 0
+const groupPointscount = ref(editor.pc.groupPointscount || 0); // Initialiser avec la valeur actuelle ou 0
 
 const create3DLine = () => { // Gestion de l'action create3DLine
   stopOtherCreateAction('create3DLine');
@@ -74,7 +74,7 @@ const create3DLine = () => { // Gestion de l'action create3DLine
 // Méthode pour ajouter un nouveau groupe de lignes
 const addNewLineGroup = () => {
   groupPointscount.value += 1;  // Incrémenter le compteur réactif
-  editor.groupPointscount = groupPointscount.value; // Mettre à jour également l'éditeur si nécessaire
+  editor.pc.groupPointscount = groupPointscount.value; // Mettre à jour également l'éditeur si nécessaire
   console.log('New line group added:', groupPointscount.value);
 };
 
