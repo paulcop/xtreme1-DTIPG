@@ -80,7 +80,7 @@ const addNewLineGroup = () => {
 
 // Nouvelle méthode pour appeler addSelectPoint
 const addSelectPoint = () => {
-  if (editor.pc.selection.length > 0 && editor.pc.selection[0].userData.isPoint) {
+  if (editor.pc.selection.length > 0 && editor.pc.selection[0].userData.isPoint /*&& editor.pc.selection[0].userData.nextPoint*/) {
     console.log('Point selected');
     stopOtherCreateAction('addPointSelect');
     editor.actionManager.execute('addPointSelect');

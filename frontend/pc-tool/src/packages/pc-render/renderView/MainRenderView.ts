@@ -238,7 +238,7 @@ export default class MainRenderView extends Render {
                 this.renderBox(box as Box);
             });
             annotatePoints3D.children.forEach((datapoint, index) => {
-                this.renderPointAndLines(datapoint as AnnotateObject, scene);
+                this.renderPointAndLines(datapoint as AnnotateObject, scene, false);
             });
 
             // render select
@@ -254,24 +254,44 @@ export default class MainRenderView extends Render {
                 this.renderBox(box as Box, selectionMap[box.uuid] ? this.selectColor : undefined);
             });
             annotatePoints3D.children.forEach((datapoint, index) => {
-                this.renderPointAndLines(datapoint as AnnotateObject, scene);
-            })
+                if (datapoint.visible) {
+                    if (datapoint == point) {
+                        this.renderPointAndLines(datapoint as AnnotateObject, scene, true);
+                    }
+                    else {
+                        this.renderPointAndLines(datapoint as AnnotateObject, scene, false);
+                    }
+                }
+            });
 
         }
         this.renderer.clearDepth();
     }
 
-    renderPointAndLines(point: AnnotateObject, scene: THREE.Scene) {
+    renderPointAndLines(point: AnnotateObject, scene: THREE.Scene, bool: boolean) {
+        if (bool) {
+            /*if (point.userData.nextLine) {
+                this.renderLine(point.userData.nextLine as THREE.Line, this.selectColor);
+            }*/
+            if (point.userData.prevLine) {
+                this.renderLine(point.userData.prevLine as THREE.Line, this.selectColor);
+            }
 
-        if (point.userData.nextLine) {
-            this.renderLine(point.userData.nextLine as THREE.Line, this.selectColor);
+            this.renderPoint(point, this.selectColor);
+            this.renderer.render(scene, this.camera);
         }
-        if (point.userData.prevLine) {
-            this.renderLine(point.userData.prevLine as THREE.Line, this.selectColor);
+        else {
+            /*if (point.userData.nextLine) {
+                this.renderLine(point.userData.nextLine as THREE.Line, point.userData.color);
+            }*/
+            if (point.userData.prevLine) {
+                this.renderLine(point.userData.prevLine as THREE.Line, point.color);
+            }
+
+            this.renderPoint(point, point.color);
+            this.renderer.render(scene, this.camera);
         }
 
-        this.renderPoint(point, this.selectColor);
-        this.renderer.render(scene, this.camera);
     }
 
     renderPoint(point: AnnotateObject, color: THREE.Color) {

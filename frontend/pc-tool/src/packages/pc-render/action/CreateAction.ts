@@ -214,9 +214,7 @@ export default class CreateAction extends Action {
         //console.log('pointcloud:', pointcloud.getAnnotatePoints3D()[pointcloud.getAnnotatePoints3D().length - 1]);
         if (pointcloud.selection.length > 0 && pointcloud.selection[0].userData.isPoint && pointcloud.getAnnotatePoints3D() && pointcloud.getAnnotatePoints3D().length > 0) {
             let last = pointcloud.selection[0];
-            console.log(last.userData.groupName, pointcloud.groupPointscount);
-            if (last.userData.groupName == pointcloud.groupPointscount) {
-                const vector = last.position.clone();
+            const vector = last.position.clone();
 
                 // 2. Projeter cette position avec la caméra (transforme les coordonnées 3D en coordonnées 2D dans l'espace de la caméra)
                 vector.project(this.renderView.camera);
@@ -246,7 +244,6 @@ export default class CreateAction extends Action {
                     const y = -(vector.y * heightHalf) + heightHalf;
                     //context.moveTo(x, y);
                     context.lineTo(x, y);
-                }
             }
         }
 
@@ -467,7 +464,7 @@ export default class CreateAction extends Action {
     handleMouse(event: MouseEvent) {
         this.points.push({ x: event.offsetX, y: event.offsetY });
 
-        console.log('Captured Points:', this.points); // Ajoutez un log pour vérifier les points capturés
+        // console.log('Captured Points:', this.points); // Ajoutez un log pour vérifier les points capturés
 
         if (this.onChange) this.onChange(this.points);
 

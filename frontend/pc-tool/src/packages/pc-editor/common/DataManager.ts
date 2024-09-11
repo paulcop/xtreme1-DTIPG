@@ -250,7 +250,7 @@ export default class DataManager {
     loadDataFromManager() {
         let frame = this.editor.getCurrentFrame();
 
-        console.log('loadDataFromManager', this.editor.state.frameIndex);
+        //console.log('loadDataFromManager', this.editor.state.frameIndex);
 
         let objects = this.getFrameObject(frame.id) || [];
         let {
@@ -272,7 +272,7 @@ export default class DataManager {
             let valid = filterMap.all || filterMap.source[sourceId];
             if (!valid) return;
 
-            if (e instanceof Box) {
+            if (e instanceof Box /*|| e.userData.isPoint*/) {
                 e.parent = this.editor.pc.annotate3D;
                 annotate3D.push(e);
             } else if (e instanceof Object2D) annotate2D.push(e);

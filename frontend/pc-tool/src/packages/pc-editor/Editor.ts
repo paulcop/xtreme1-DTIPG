@@ -276,29 +276,6 @@ export default class Editor extends THREE.EventDispatcher {
     //////////////////////////////////////////////////////////////////
     //   Line 3D annotation   //
 
-    /// Create a new group of points with a given name
-    /*createPointGroup(groupName: string): { pointsGroup: THREE.Group; linesGroup: THREE.Group } {
-        if (this.pointGroups[groupName]) {
-            console.warn(`Group ${groupName} already exists!`);
-            return this.pointGroups[groupName];
-        }
-        if (!this.pc.annotatePoints3D.children) {
-            this.pc.annotatePoints3D = new THREE.Group();
-        }
-
-        const pointsGroup = new THREE.Group();
-        pointsGroup.name = `${groupName}-points`;
-
-        const linesGroup = new THREE.Group();
-        linesGroup.name = `${groupName}-lines`;
-
-        this.pc.scene.add(pointsGroup);  // Add the points group to the scene
-        this.pc.scene.add(linesGroup);   // Add the lines group to the scene
-
-        this.pointGroups[groupName] = { pointsGroup, linesGroup };
-        return this.pointGroups[groupName];
-    }*/
-
     // Add a point to a group and connect it with the previous point
     addPoint(point: THREE.Object3D, groupName: string) {
 
@@ -324,16 +301,13 @@ export default class Editor extends THREE.EventDispatcher {
                 previousPoint.userData.nextLine = line;
             }
 
-            //this.pc.scene.add(line); // Add the line to the scene
-            //group.linesGroup.add(line); // Add the line to the linesGroup
         }
 
-        //console.log(`Added point to group ${groupName}: `, group.pointsGroup.children);
         this.pc.render();
     }
 
-    addPointToindex(point: THREE.Object3D, startPoint: THREE.Object3D, groupName: string) {
-        point.userData.groupName = groupName;
+    addPointToindex(point: THREE.Object3D, startPoint: THREE.Object3D) {
+        point.userData.groupName = startPoint.userData.groupName;
         this.pc.setVisible(point, true);
 
         let index = this.pc.annotatePoints3D.children.indexOf(startPoint)
@@ -346,7 +320,7 @@ export default class Editor extends THREE.EventDispatcher {
             const removed = this.pc.annotatePoints3D.children.pop(); // Supprime l'objet ajouté à la fin
             if (removed) {
                 // Insérer l'objet à la nouvelle position
-                this.pc.annotatePoints3D.children.splice(index, 0, removed);
+                this.pc.annotatePoints3D.children.splice(index + 1, 0, removed);
             }
         }
         /*
@@ -403,7 +377,6 @@ export default class Editor extends THREE.EventDispatcher {
 
         // Remove the previous line and update the previous point's next connection
         if (point.userData.prevLine) {
-            //this.pc.scene.remove(point.userData.prevLine);
             if (point.userData.prevPoint) {
                 point.userData.prevPoint.userData.nextLine = null;
                 point.userData.prevPoint.userData.nextPoint = point.userData.nextPoint;
@@ -412,7 +385,6 @@ export default class Editor extends THREE.EventDispatcher {
 
         // Remove the next line and update the next point's previous connection
         if (point.userData.nextLine) {
-            //this.pc.scene.remove(point.userData.nextLine);
             if (point.userData.nextPoint) {
                 point.userData.nextPoint.userData.prevLine = null;
                 point.userData.nextPoint.userData.prevPoint = point.userData.prevPoint;
@@ -426,13 +398,11 @@ export default class Editor extends THREE.EventDispatcher {
                 );
                 point.userData.prevPoint.userData.nextLine = newLine;
                 point.userData.nextPoint.userData.prevLine = newLine;
-                //this.pc.scene.add(newLine);
             }
         }
 
         // Finally, remove the point from the group
         this.pc.annotatePoints3D.remove(point);
-        //this.pc.scene.remove(point); // Remove the point from the scene
         this.pc.render();
     }
 
@@ -446,7 +416,7 @@ export default class Editor extends THREE.EventDispatcher {
         //console.log(`Point1 position:`, point1.position);
         //console.log(`Point2 position:`, point2.position);
 
-        const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const material = new THREE.LineBasicMaterial({ color: 0xffffff });
         const geometry = new THREE.BufferGeometry().setFromPoints([
             point1.position,
             point2.position
@@ -512,7 +482,8 @@ export default class Editor extends THREE.EventDispatcher {
             let userData = this.getObjectUserData(obj);
             let classConfig = this.getClassType(userData);
 
-            if (obj instanceof Box) {
+
+            if (obj instanceof Box || obj.userData.isPoint) {
                 // obj.editConfig.resize = !userData.isStandard && userData.resultType !== Const.Fixed;
                 obj.color.setStyle(classConfig ? classConfig.color : '#ffffff');
             } else {

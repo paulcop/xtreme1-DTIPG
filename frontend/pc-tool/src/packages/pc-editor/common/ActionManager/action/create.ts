@@ -6,7 +6,7 @@ import {
     Points,
     Event,
     utils,
-    ITransform,
+    ITransform, AnnotateObject,
 } from 'pc-render';
 import * as THREE from 'three';
 import { nanoid } from 'nanoid';
@@ -223,9 +223,12 @@ function createPointAnnotation(editor: Editor, position: THREE.Vector3, groupNam
     point.uuid = point.userData.id;
     point.userData.prevPoint = null;
     point.userData.prevLine = null;
+    //point.userData.color = new THREE.Color(1, 1, 1);
+
+    (point as AnnotateObject).color = new THREE.Color(1, 1, 1);
 
     if (startPoint) {
-        editor.addPointToindex(point, startPoint, groupName);
+        editor.addPointToindex(point, startPoint);
     }
     else {
         editor.addPoint(point, groupName);

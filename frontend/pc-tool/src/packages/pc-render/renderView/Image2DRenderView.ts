@@ -545,7 +545,7 @@ export default class Image2DRenderView extends Render {
         let { renderer } = this.proxy;
 
         // Determine the color based on whether the point is selected
-        let color = selectionMap[point.uuid] ? selectColor : new THREE.Color(0xffffff); // White if not selected, red if selected
+        let color = selectionMap[point.uuid] ? selectColor : point.color; // White if not selected, red if selected
         let highFlag = this.isHighlight(point);
         color = highFlag ? highlightColor : color;
 
