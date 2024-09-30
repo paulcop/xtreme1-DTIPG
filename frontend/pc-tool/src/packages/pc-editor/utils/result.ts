@@ -142,7 +142,22 @@ export function convertObject2Annotate(objects: IObject[], editor: Editor) {
     // editor.state.classTypes.forEach((e) => {
     //     classMap[e.name] = e;
     // });
+
+    // sort if objType = "3D_POINT", by trackName then by pointN;
+    objects.sort((a, b) => {
+        if (a.objType === ObjectType.TYPE_3D_POINT && b.objType === ObjectType.TYPE_3D_POINT) {
+            if (a.trackName === b.trackName) {
+                return a.pointN - b.pointN;
+            }
+            return a.trackName.localeCompare(b.trackName);
+        }
+        return 0;
+    });
+
+    console.log('objects', objects);
+
     objects.forEach((obj) => {
+        console.log('obj', obj);
         let userData = {} as IUserData;
         let objType = obj.objType || obj.type;
         let classConfig = editor.getClassType(obj.classId as string);
@@ -168,8 +183,19 @@ export function convertObject2Annotate(objects: IObject[], editor: Editor) {
         userData.sourceType = obj.sourceType;
         userData.attrs = obj.attrs || {};
         userData.pointN = obj.pointN || 0;
+        console.log('yooooooooo', userData.trackName);
+        if (userData.trackName?.match(/Ligne/)) {
+            userData.isPoint = true;
+        }
+        else {
+            userData.isPoint = false;
+        }
+        console.log('yooooooooo', userData.isPoint);
+        console.log('objType', objType);
+
         createUtils.setIdInfo(editor, userData);
         if (objType === ObjectType.TYPE_3D_BOX || objType === ObjectType.TYPE_3D) {
+            console.log('objType', objType);
             position.set(obj.center3D.x, obj.center3D.y, obj.center3D.z);
             rotation.set(obj.rotation3D.x, obj.rotation3D.y, obj.rotation3D.z);
             scale.set(obj.size3D.x, obj.size3D.y, obj.size3D.z);
@@ -213,9 +239,28 @@ export function convertObject2Annotate(objects: IObject[], editor: Editor) {
             if (classConfig) box2d.color = classConfig.color;
             bindInfo(box2d, obj);
             annotates.push(box2d);
+        } else if (objType === ObjectType.TYPE_3D_POINT) {
+            console.log('objType', objType);
+            position.set(obj.center3D.x, obj.center3D.y, obj.center3D.z);
+            let point = createUtils.createAnnotatePoint(editor, position, userData);
+            if (classConfig) {
+                (point as AnnotateObject).color = new THREE.Color(1, 1, 1).setStyle(classConfig.color);
+                // box.editConfig.resize = !userData.isStandard && userData.resultType !== Const.Fixed;
+            }
+            bindInfo(point, obj);
+            annotates.push(point);
         }
     });
 
+    // find max userData.trackName?.match(/(\d+)/)?.[0]) of editor.pc.getAnnotatePoints3D()
+    let maxTrackName = 0;
+    editor.pc.getAnnotatePoints3D().forEach((point) => {
+        let trackName = point.userData.trackName?.match(/(\d+)/)?.[0];
+        if (trackName) {
+            maxTrackName = Math.max(maxTrackName, parseInt(trackName));
+        }
+    });
+    editor.pc.groupPointscount = maxTrackName;
     return annotates;
 }
 
@@ -290,9 +335,19 @@ export function convertAnnotate2Object(annotates: AnnotateObject[], editor: Edit
             info.rotation3D.set(obj.rotation.x, obj.rotation.y, obj.rotation.z);
             info.size3D.set(obj.scale.x, obj.scale.y, obj.scale.z);
         } else {
-            info.viewIndex = parseInt((obj.viewId.match(/[0-9]{1,5}$/) as any)[0]);
+            if (obj.userData.isPoint) {
+                console.log('isPoint', info.objType);
+                info.center3D.set(obj.position.x, obj.position.y, obj.position.z);
+                info.rotation3D.set(obj.rotation.x, obj.rotation.y, obj.rotation.z);
+                info.size3D.set(obj.scale.x, obj.scale.y, obj.scale.z);
+                info.pointN = editor.pc.getAnnotatePoints3D().indexOf(obj);
+            }
+            else {
+                info.viewIndex = parseInt((obj.viewId.match(/[0-9]{1,5}$/) as any)[0]);
+            }
         }
         objects.push(info);
+        console.log('info point :', info.isPoint);
     });
 
     // console.log(objects);
@@ -305,6 +360,7 @@ function getObjType(annotate: AnnotateObject): ObjectType {
     if (annotate instanceof Box) type = ObjectType.TYPE_3D_BOX;
     else if (annotate instanceof Rect) type = ObjectType.TYPE_2D_RECT;
     else if (annotate instanceof Box2D) type = ObjectType.TYPE_2D_BOX;
+    else if (annotate.userData.isPoint) type = ObjectType.TYPE_3D_POINT;
     return type;
 }
 

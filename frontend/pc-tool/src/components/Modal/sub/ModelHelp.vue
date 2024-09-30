@@ -53,6 +53,14 @@
                 key: ['Ctrl/⌘', '+', 'Shift', '+', 'Z'],
                 action: $$('hk-redo'),
             },
+            {
+              key: ['P'],
+              action: $$('hk-add-point'),
+            },
+            {
+              key: ['O'],
+              action: $$('hk-add-point-at'),
+            },
         ];
     });
     const editActions = computed<hotAction[]>(() => {

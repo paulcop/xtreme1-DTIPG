@@ -65,6 +65,8 @@ export enum ObjectType {
     TYPE_3D_BOX = '3D_BOX',
     TYPE_2D_RECT = '2D_RECT',
     TYPE_2D_BOX = '2D_BOX',
+    TYPE_3D_POINT = '3D_POINT',
+    TYPE_2D_POINT = '2D_POINT',
 }
 
 // export interface IModelRun {

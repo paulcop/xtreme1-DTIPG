@@ -169,7 +169,8 @@ export const createObjectWith3 = define({
                                     e.userData.trackId == editor.currentTrack
                                 );
                             });
-                            if (!object3d) {
+                            const points = editor.pc.getAnnotatePoints3D()
+                            if (!object3d && !points) { // I didn't understand why we don't use getId() here
                                 userData.trackId = editor.currentTrack as string;
                                 userData.trackName = editor.currentTrackName;
                             }

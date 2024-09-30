@@ -71,6 +71,8 @@ export default class LoadManager {
         let { frameIndex, frames, classifications } = this.editor.state;
         let frame = frames[frameIndex];
 
+        console.log('loadObjectAndClassification', this.editor.playManager.playing);
+
         let objects = this.editor.dataManager.getFrameObject(frame.id);
         if (!objects) {
             try {

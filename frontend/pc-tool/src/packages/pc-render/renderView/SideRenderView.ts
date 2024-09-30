@@ -5,6 +5,7 @@ import PointCloud from '../PointCloud';
 import { Event } from '../config';
 import PointsMaterial from '../material/PointsMaterial';
 import * as _ from 'lodash';
+import {AnnotateObject} from "../objects";
 
 export let axisUpInfo = {
     x: {
@@ -112,7 +113,7 @@ export default class SideRenderView extends Render {
 
     initEvent() {
         this.pointCloud.addEventListener(Event.SELECT, () => {
-            let object = this.pointCloud.selection.find((annotate) => annotate instanceof Box);
+            let object = this.pointCloud.selection.find((annotate) => annotate instanceof Box || annotate instanceof THREE.Object3D);
             if (object) {
                 this.enableFit = true;
                 this.zoom = 1;
@@ -288,17 +289,25 @@ export default class SideRenderView extends Render {
 
         this.pointCloud.selection.forEach((object) => {
             if (object instanceof THREE.Object3D && object.userData.isPoint === true) {
-                const box = new THREE.Box3().setFromObject(object);
-                boundingBox.expandByObject(object);
+                object.updateMatrixWorld(true); // S'assurer que les matrices de l'objet sont à jour
+
+                // Créez une Box3 pour l'objet
+                const objectBoundingBox = new THREE.Box3().setFromObject(object);
+
+                // Étendre la bounding box principale par les points min et max de la box de l'objet
+                boundingBox.expandByPoint(objectBoundingBox.min);
+                boundingBox.expandByPoint(objectBoundingBox.max);
+
                 foundPoints = true;
             }
         });
 
         if (!foundPoints) {
+            console.warn("Aucun point trouvé dans la sélection.");
             return null; // Si aucun point n'est trouvé, renvoie null
         }
 
-        // Ajouter un padding autour de la bounding box (pour agrandir la zone)
+        // Ajouter un padding autour de la bounding box
         const size = boundingBox.getSize(new THREE.Vector3());
         const padding = size.multiplyScalar(paddingPercent); // Ajouter un pourcentage de la taille actuelle
         boundingBox.expandByVector(padding); // Agrandir la bounding box avec le padding
@@ -314,13 +323,16 @@ export default class SideRenderView extends Render {
 
         if (groupPoints.children.length === 0) return;
 
+        let hasObject3D = selection.find((e) => e instanceof THREE.Object3D);
+
         // Si l'objet sélectionné est un point, recentrer la caméra
         if (this.isSelectedPoint()) {
             // Ajouter un padding de 20% autour du point sélectionné
             const boundingBox = this.getBoundingBoxForSelectedPoints(5); // 0.2 = 20% de padding
 
             if (boundingBox) {
-                const center = boundingBox.getCenter(new THREE.Vector3());
+                const center = boundingBox.getCenter(new THREE.Vector3()); //(hasObject3D as THREE.Object3D).position
+
                 const size = boundingBox.getSize(new THREE.Vector3());
 
                 const aspect = this.width / this.height;
@@ -341,11 +353,11 @@ export default class SideRenderView extends Render {
                 this.camera.bottom = (-cameraHeight / 2) * this.zoom;
                 this.camera.position.set(center.x, center.y, this.camera.position.z);
                 this.camera.updateProjectionMatrix();
+
+                console.log("Bounding box size:", size);
+                console.log("Camera centered on:", center);
             }
         }
-
-        let hasObject3D = selection.find((e) => e instanceof THREE.Object3D);
-
         if (selection.length > 0 && hasObject3D) {
             // Render points
             let groupPoint = groupPoints.children[0] as THREE.Points;

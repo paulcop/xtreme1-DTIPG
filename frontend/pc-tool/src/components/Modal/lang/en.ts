@@ -16,6 +16,8 @@ const en = {
     'hk-axis': 'Show/hide Coordinate Axis',
     'hk-filter': 'Filter other object in 2d view',
     'hk-measure': 'Show/hide Distance Measure',
+    'hk-add-point': 'Add Point',
+    'hk-add-point-at': 'Add Point after a selected point',
 };
 export type ILocale = typeof en;
 export { en };

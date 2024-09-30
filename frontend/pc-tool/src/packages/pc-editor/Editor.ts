@@ -170,9 +170,12 @@ export default class Editor extends THREE.EventDispatcher {
             let objects = [...annotate3D, ...annotate2D, ...annotatePoints3D].filter(
                 (e) => e.userData.trackId === trackId,
             );
+
             if (objects.length > 0) {
                 console.log('Selecting all objects with Track ID:', trackId);
                 this.pc.selectObject(objects);
+                // mes le centre de la vue sur le premier objet sélectionné
+                this.focusObject(objects[0]);
             }
         });
     }
@@ -280,6 +283,7 @@ export default class Editor extends THREE.EventDispatcher {
     addPoint(point: THREE.Object3D, groupName: string) {
 
         point.userData.groupName = groupName;
+        point.userData.trackName = "Ligne " + groupName;
         this.pc.setVisible(point, true);
 
         this.pc.annotatePoints3D.add(point);
@@ -299,20 +303,36 @@ export default class Editor extends THREE.EventDispatcher {
                 point.userData.prevLine = line;
                 previousPoint.userData.nextPoint = point;
                 previousPoint.userData.nextLine = line;
-            }
 
+                point.userData.trackId = previousPoint.userData.trackId;
+                point.userData.trackName = previousPoint.userData.trackName;
+
+                if (previousPoint.userData.classId) {
+                    let classConfig = editor.getClassType(previousPoint.userData.classId as string);
+                    (point as AnnotateObject).color = new THREE.Color(classConfig.color);
+                    point.userData.classType = classConfig.type;
+                    point.userData.classId = classConfig.id;
+                }
+            }
+        }
+
+        if (!point.userData.prevPoint)
+        {
+            utils.setIdInfo(this, point.userData);
         }
 
         this.pc.render();
     }
 
     addPointToindex(point: THREE.Object3D, startPoint: THREE.Object3D) {
+        // startPoint is the point before the new point
         point.userData.groupName = startPoint.userData.groupName;
         this.pc.setVisible(point, true);
 
         let index = this.pc.annotatePoints3D.children.indexOf(startPoint)
 
         this.pc.annotatePoints3D.add(point)
+        utils.setIdInfo(this, point.userData);
 
         // Vérifier que l'index est valide avant de déplacer
         if (index >= 0 && index < this.pc.annotatePoints3D.children.length) {
@@ -343,6 +363,16 @@ export default class Editor extends THREE.EventDispatcher {
         point.userData.prevLine = line;
         startPoint.userData.nextPoint = point;
         startPoint.userData.nextLine = line;
+
+        point.userData.trackId = startPoint.userData.trackId;
+        point.userData.trackName = startPoint.userData.trackName;
+
+        if (startPoint.userData.classId) {
+            let classConfig = editor.getClassType(startPoint.userData.classId as string);
+            (point as AnnotateObject).color = new THREE.Color(classConfig.color);
+            point.userData.classType = classConfig.type;
+            point.userData.classId = classConfig.id;
+        }
 
         this.pc.render();
     }
