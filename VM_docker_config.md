@@ -1,3 +1,5 @@
+version: '3.7'
+
 services:
   nginx:
     image: nginx:1.22
@@ -6,8 +8,8 @@ services:
     volumes:
       - ./deploy/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend  # Simple liste de services dépendants
+
   mysql:
     image: mysql:5.7
     environment:
@@ -27,6 +29,7 @@ services:
       timeout: 10s
       start_period: 10s
       retries: 10
+
   redis:
     image: redis:6.2
     ports:
@@ -34,11 +37,12 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 10s
       start_period: 10s
       retries: 10
+
   minio:
     image: bitnami/minio:2022.9.1
     environment:
@@ -51,86 +55,54 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "--silent",
-          "-f",
-          "http://minio:9000/minio/health/ready"
-        ]
+      test: ["CMD", "curl", "--silent", "-f", "http://minio:9000/minio/health/ready"]
       interval: 10s
       timeout: 10s
       start_period: 10s
       retries: 10
+
   backend:
-    # By default, Compose will pull image from Docker Hub when no local image found.
     image: basicai/xtreme1-backend:v0.9.1
-    pull_policy: always
-    # Uncomment this line and comment previous line to build image locally, not pull from Docker Hub.
-    # build: ./backend
     ports:
       - 8290:8080
-    # volumes:
-    # Using customized application.yml to override default configs.
-    #   - /host/path/to/customized/application.yml:/app/config/application.yml
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "--silent",
-          "-f",
-          "http://backend:8080/actuator/health"
-        ]
+      test: ["CMD", "curl", "--silent", "-f", "http://backend:8080/actuator/health"]
       interval: 10s
       timeout: 10s
       start_period: 10s
       retries: 30
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      - mysql
+      - redis
+      - minio  # Simple liste de services dépendants
+
   frontend:
-    # By default, Compose will pull image from Docker Hub when no local image found.
-    # image: basicai/xtreme1-frontend:v0.9.1
-    # pull_policy: always
-    # Uncomment this line and comment previous line to build image locally, not pull from Docker Hub.
-    build: ./frontend
+    image: xtreme1-frontend
     ports:
       - 8291:80
+
   pcd-tools:
     image: basicai/xtreme1-pcd-tools
-    pull_policy: always
     ports:
       - 8295:5000
+
   image-vect-visualization:
     image: basicai/xtreme1-image-vect-visualization
-    pull_policy: always
     ports:
       - 8294:5000
+
   image-object-detection:
     image: basicai/xtreme1-image-object-detection
-    pull_policy: always
     ports:
       - 8292:5000
-    # You need to explicitly specify model profile to start this service.
-    profiles:
-      - model
-    runtime: nvidia
+
   point-cloud-object-detection:
     image: basicai/xtreme1-point-cloud-object-detection
-    pull_policy: always
     ports:
       - 8293:5000
-    # You need to explicitly specify model profile to start this service.
-    profiles:
-      - model
-    runtime: nvidia
+
 volumes:
   mysql-data:
   redis-data:
   minio-data:
+
